@@ -1,0 +1,17 @@
+import React from "react";
+import ReactDOM from "react-dom";
+import App from "./App";
+import * as serviceWorker from "./serviceWorker";
+import { SnackbarProvider } from "notistack";
+import "./styles/aura.css";
+import "./api/httpLoader"; // registers global axios loading interceptors
+ReactDOM.render(
+  <React.StrictMode>
+<SnackbarProvider maxSnack={3}> 
+    <App />
+    </SnackbarProvider>
+  </React.StrictMode>,
+  document.getElementById("root")
+);
+
+serviceWorker.unregister();
