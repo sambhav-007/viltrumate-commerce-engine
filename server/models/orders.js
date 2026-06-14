@@ -26,13 +26,18 @@ const orderSchema = new mongoose.Schema(
     },
     total: { type: Number, default: 0 },
     paymentMethod: { type: String, default: "whatsapp" }, // provider id
+    // Fulfillment workflow. "fulfilled" added in VCE Beta (additive — existing
+    // docs only ever hold the original three values, so no migration needed).
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled"],
+      enum: ["pending", "confirmed", "fulfilled", "cancelled"],
       default: "pending",
     },
   },
   { timestamps: true }
 );
+
+// Admin list is filtered by status, newest first — index supports both.
+orderSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("orders", orderSchema);
