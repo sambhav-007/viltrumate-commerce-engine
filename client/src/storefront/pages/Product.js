@@ -5,13 +5,17 @@ import Layout from "../Layout";
 import ProductCard from "../ProductCard";
 import Reveal from "../Reveal";
 import { useCart } from "../../context/CartContext";
+import { useSettings } from "../../context/SettingsContext";
 import { getProduct, getProducts } from "../../api/shop";
 import { money, cld } from "../format";
+import { VARIANT_LABEL } from "../../config/store.config";
 import Reviews from "../Reviews";
 
 const Product = () => {
   const { slug } = useParams();
   const { add } = useCart();
+  const settings = useSettings();
+  const vlabel = settings.variantLabel || VARIANT_LABEL;
   const [product, setProduct] = useState(null);
   const [shades, setShades] = useState([]);
   const [sel, setSel] = useState(null);
@@ -143,17 +147,17 @@ const Product = () => {
             </div>
           )}
 
-          {/* Shade selector */}
+          {/* Variant selector */}
           <div className="mb-10">
             <div className="flex justify-between items-baseline mb-4">
-              <span className="eyebrow">Shade · {shades.length}</span>
+              <span className="eyebrow">{vlabel} · {shades.length}</span>
               {sel && <span className="text-sm font-medium">{sel.name}</span>}
             </div>
             {shades.length > 12 && (
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Find a shade… e.g. 23 or Red"
+                placeholder={`Find a ${vlabel.toLowerCase()}… e.g. 23 or Red`}
                 className="lux-input mb-3"
                 style={{ padding: "0.6rem 0.9rem" }}
               />
@@ -179,7 +183,7 @@ const Product = () => {
               })}
               {shown.length === 0 && (
                 <div className="col-span-full text-sm text-muted py-2">
-                  No shades match “{filter}”.
+                  No {vlabel.toLowerCase()} match “{filter}”.
                 </div>
               )}
             </div>

@@ -3,13 +3,15 @@ import { useParams, useHistory } from "react-router-dom";
 import AdminLayout from "../layout";
 import {
   getProductById,
-  getShadesByProduct,
-  bulkCreateShades,
-  bulkUpdateShades,
-  updateShade,
-  deleteShade,
-  deleteShadeImage,
+  getVariantsByProduct,
+  bulkCreateVariants,
+  bulkUpdateVariants,
+  updateVariant,
+  deleteVariant,
+  deleteVariantImage,
 } from "../../../api/admin";
+import { useSettings } from "../../../context/SettingsContext";
+import { VARIANT_LABEL } from "../../../config/store.config";
 import {
   Spinner,
   PageHeader,
@@ -23,9 +25,12 @@ import {
 
 const pad = (n, width) => String(n).padStart(width, "0");
 
-const ShadeManager = () => {
+const VariantManager = () => {
   const { id } = useParams();
   const history = useHistory();
+  const settings = useSettings();
+  const L = settings.variantLabel || VARIANT_LABEL; // singular label
+  const Lp = `${L}s`; // plural label
   const [product, setProduct] = useState(null);
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState({});
@@ -34,7 +39,9 @@ const ShadeManager = () => {
   const { toast, node } = useToast();
 
   const load = () =>
-    getShadesByProduct(id).then((res) => setRows(res.shades || []));
+    getVariantsByProduct(id).then((res) =>
+      setRows(res.variants || res.shades || [])
+    );
   useEffect(() => {
     load();
     getProductById(id).then((res) => setProduct(res.product || {}));
@@ -58,44 +65,45 @@ const ShadeManager = () => {
     setRows(rows.map((r) => (r._id === rid ? { ...r, ...patch, _dirty: true } : r)));
 
   const saveRow = async (r) => {
-    const res = await updateShade(r._id, {
+    const res = await updateVariant(r._id, {
       name: r.name,
       price: r.price,
       mrp: r.mrp === null ? "" : r.mrp,
       status: r.status,
     });
     if (res.error) return toast(res.error, "error");
-    toast("Shade saved");
+    toast(`${L} saved`);
     setRows(rows.map((x) => (x._id === r._id ? { ...x, _dirty: false } : x)));
   };
 
   const uploadImages = async (r, files) => {
     if (!files.length) return;
-    const res = await updateShade(r._id, { images: Array.from(files) });
+    const res = await updateVariant(r._id, { images: Array.from(files) });
     if (res.error) return toast(res.error, "error");
     toast("Image(s) added");
     load();
   };
 
   const removeImage = async (r, publicId) => {
-    const res = await deleteShadeImage(r._id, publicId);
+    const res = await deleteVariantImage(r._id, publicId);
     if (res.error) return toast(res.error, "error");
     load();
   };
 
   const removeRow = async (r) => {
-    if (!window.confirm(`Delete shade "${r.name}"?`)) return;
-    const res = await deleteShade(r._id);
+    if (!window.confirm(`Delete ${L.toLowerCase()} "${r.name}"?`)) return;
+    const res = await deleteVariant(r._id);
     if (res.error) return toast(res.error, "error");
-    toast("Shade deleted");
+    toast(`${L} deleted`);
     load();
   };
 
   const bulkDelete = async () => {
     if (!selectedIds.length) return;
-    if (!window.confirm(`Delete ${selectedIds.length} selected shades?`)) return;
-    for (const sid of selectedIds) await deleteShade(sid);
-    toast(`${selectedIds.length} shades deleted`);
+    if (!window.confirm(`Delete ${selectedIds.length} selected ${Lp.toLowerCase()}?`))
+      return;
+    for (const vid of selectedIds) await deleteVariant(vid);
+    toast(`${selectedIds.length} ${Lp.toLowerCase()} deleted`);
     setSelected({});
     load();
   };
@@ -112,7 +120,8 @@ const ShadeManager = () => {
               >
                 ←
               </button>
-              Shades{product && product.name ? ` — ${product.name}` : ""}
+              {Lp}
+              {product && product.name ? ` — ${product.name}` : ""}
             </span>
           }
           action={
@@ -170,7 +179,7 @@ const ShadeManager = () => {
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan="8" className="p-6 text-center text-gray-400">
-                      No shades yet. Use “Bulk Add”.
+                      No {Lp.toLowerCase()} yet. Use “Bulk Add”.
                     </td>
                   </tr>
                 )}
@@ -270,6 +279,8 @@ const ShadeManager = () => {
 
       <BulkAddModal
         open={bulkOpen}
+        label={L}
+        labelPlural={Lp}
         onClose={() => setBulkOpen(false)}
         productId={id}
         existingCount={rows ? rows.length : 0}
@@ -282,13 +293,14 @@ const ShadeManager = () => {
       />
       <SetPriceModal
         open={priceOpen}
+        labelPlural={Lp}
         count={selectedIds.length}
         onClose={() => setPriceOpen(false)}
         onApply={async ({ price, mrp }) => {
           const body = { ids: selectedIds };
           if (price !== "") body.price = Number(price);
           if (mrp !== "") body.mrp = Number(mrp);
-          const res = await bulkUpdateShades(body);
+          const res = await bulkUpdateVariants(body);
           if (res.error) return toast(res.error, "error");
           toast(res.success);
           setPriceOpen(false);
@@ -302,10 +314,19 @@ const ShadeManager = () => {
 };
 
 /* ---- Bulk add: generate numbered range OR paste a list ---- */
-const BulkAddModal = ({ open, onClose, productId, existingCount, onDone, onError }) => {
+const BulkAddModal = ({
+  open,
+  label,
+  labelPlural,
+  onClose,
+  productId,
+  existingCount,
+  onDone,
+  onError,
+}) => {
   const [mode, setMode] = useState("range");
   const [count, setCount] = useState(10);
-  const [prefix, setPrefix] = useState("Shade ");
+  const [prefix, setPrefix] = useState(`${label} `);
   const [padding, setPadding] = useState(2);
   const [startAt, setStartAt] = useState(1);
   const [paste, setPaste] = useState("");
@@ -334,18 +355,18 @@ const BulkAddModal = ({ open, onClose, productId, existingCount, onDone, onError
     setBusy(true);
     const body = {
       product: productId,
-      shades: names.map((name) => ({ name })),
+      variants: names.map((name) => ({ name })),
     };
     if (price !== "") body.price = Number(price);
     if (mrp !== "") body.mrp = Number(mrp);
-    const res = await bulkCreateShades(body);
+    const res = await bulkCreateVariants(body);
     setBusy(false);
     if (res.error) return onError(res.error);
     onDone(res.success);
   };
 
   return (
-    <Modal open={open} title="Bulk Add Shades" onClose={onClose}>
+    <Modal open={open} title={`Bulk Add ${labelPlural}`} onClose={onClose}>
       <div className="flex gap-4 mb-3 text-sm">
         <label className="flex items-center gap-1">
           <input
@@ -393,7 +414,7 @@ const BulkAddModal = ({ open, onClose, productId, existingCount, onDone, onError
           </Field>
         </div>
       ) : (
-        <Field label="One shade name per line">
+        <Field label={`One ${label.toLowerCase()} name per line`}>
           <textarea
             rows="6"
             className="w-full border border-gray-300 rounded px-3 py-2"
@@ -414,7 +435,7 @@ const BulkAddModal = ({ open, onClose, productId, existingCount, onDone, onError
       </div>
 
       <div className="text-sm text-gray-500 mt-1">
-        Will create <b>{names.length}</b> shades
+        Will create <b>{names.length}</b> {labelPlural.toLowerCase()}
         {names.length > 0 && (
           <>
             {" "}
@@ -436,8 +457,8 @@ const BulkAddModal = ({ open, onClose, productId, existingCount, onDone, onError
   );
 };
 
-/* ---- Set price/MRP on selected shades ---- */
-const SetPriceModal = ({ open, count, onClose, onApply }) => {
+/* ---- Set price/MRP on selected variants ---- */
+const SetPriceModal = ({ open, count, labelPlural, onClose, onApply }) => {
   const [price, setPrice] = useState("");
   const [mrp, setMrp] = useState("");
   useEffect(() => {
@@ -447,7 +468,12 @@ const SetPriceModal = ({ open, count, onClose, onApply }) => {
     }
   }, [open]);
   return (
-    <Modal open={open} title={`Set Price/MRP (${count} shades)`} onClose={onClose} width="max-w-sm">
+    <Modal
+      open={open}
+      title={`Set Price/MRP (${count} ${(labelPlural || "items").toLowerCase()})`}
+      onClose={onClose}
+      width="max-w-sm"
+    >
       <Field label="Price">
         <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
       </Field>
@@ -465,4 +491,4 @@ const SetPriceModal = ({ open, count, onClose, onApply }) => {
   );
 };
 
-export default ShadeManager;
+export default VariantManager;

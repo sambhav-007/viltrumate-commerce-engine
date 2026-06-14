@@ -56,20 +56,29 @@ export const updateProduct = (id, obj) =>
   put(`/products/${id}`, form(obj), authForm());
 export const deleteProduct = (id) => del(`/products/${id}`, auth());
 
-/* ---- Shades ---- */
-export const getShadesByProduct = (productId) =>
-  get(`/shades/by-product/${productId}`);
-export const createShade = (obj) => post("/shades", form(obj), authForm());
-export const bulkCreateShades = (body) => post("/shades/bulk", body, auth());
-export const bulkUpdateShades = (body) => patch("/shades/bulk", body, auth());
-export const updateShade = (id, obj) =>
-  put(`/shades/${id}`, form(obj), authForm());
-export const deleteShade = (id) => del(`/shades/${id}`, auth());
-export const deleteShadeImage = (id, publicId) =>
+/* ---- Variants (purchasable unit; legacy: "shades") ---- */
+export const getVariantsByProduct = (productId) =>
+  get(`/variants/by-product/${productId}`);
+export const createVariant = (obj) => post("/variants", form(obj), authForm());
+export const bulkCreateVariants = (body) => post("/variants/bulk", body, auth());
+export const bulkUpdateVariants = (body) => patch("/variants/bulk", body, auth());
+export const updateVariant = (id, obj) =>
+  put(`/variants/${id}`, form(obj), authForm());
+export const deleteVariant = (id) => del(`/variants/${id}`, auth());
+export const deleteVariantImage = (id, publicId) =>
   axios
-    .delete(`${base}/shades/${id}/image`, { ...auth(), data: { publicId } })
+    .delete(`${base}/variants/${id}/image`, { ...auth(), data: { publicId } })
     .then(data)
     .catch(fail);
+
+// Back-compat aliases (old "shade" names).
+export const getShadesByProduct = getVariantsByProduct;
+export const createShade = createVariant;
+export const bulkCreateShades = bulkCreateVariants;
+export const bulkUpdateShades = bulkUpdateVariants;
+export const updateShade = updateVariant;
+export const deleteShade = deleteVariant;
+export const deleteShadeImage = deleteVariantImage;
 
 /* ---- Banners ---- */
 export const getBanners = (all = true) =>

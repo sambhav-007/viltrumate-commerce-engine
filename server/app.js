@@ -34,11 +34,11 @@ if (process.env.DNS_SERVERS !== "off") {
   }
 }
 
-// Active routers (Aura Rare architecture)
+// Active routers (VCE commerce engine)
 const authRouter = require("./routes/auth"); // admin login
 const categoryRouter = require("./routes/categories");
 const productRouter = require("./routes/products");
-const shadeRouter = require("./routes/shades");
+const variantRouter = require("./routes/variants");
 const reviewRouter = require("./routes/reviews");
 const bannerRouter = require("./routes/banners");
 const settingsRouter = require("./routes/settings");
@@ -48,7 +48,7 @@ const statsRouter = require("./routes/stats");
 /*
  * SOFT-DEPRECATED (disconnected, files retained until full storefront/admin
  * cutover is verified): braintree, orders, customize, users routers.
- * Do not re-enable — see docs/AURA_RARE_ARCHITECTURE.md.
+ * Do not re-enable — see docs/VCE_ARCHITECTURE.md.
  */
 
 // Database Connection
@@ -89,7 +89,8 @@ app.use("/api/reviews", (req, res, next) =>
 app.use("/api", authRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/products", productRouter);
-app.use("/api/shades", shadeRouter);
+app.use("/api/variants", variantRouter);
+app.use("/api/shades", variantRouter); // back-compat alias (deprecated)
 app.use("/api/reviews", reviewRouter);
 app.use("/api/banners", bannerRouter);
 app.use("/api/settings", settingsRouter);

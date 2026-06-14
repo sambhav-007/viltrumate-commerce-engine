@@ -25,7 +25,7 @@ import NotFound from "./storefront/pages/NotFound";
 const DashboardAdmin = lazy(() => import("./components/admin/dashboardAdmin"));
 const Categories = lazy(() => import("./components/admin/categories"));
 const Products = lazy(() => import("./components/admin/products"));
-const ShadeManager = lazy(() => import("./components/admin/shades"));
+const VariantManager = lazy(() => import("./components/admin/variants"));
 const Banners = lazy(() => import("./components/admin/banners"));
 const Reviews = lazy(() => import("./components/admin/reviews"));
 const Settings = lazy(() => import("./components/admin/settings"));
@@ -66,8 +66,14 @@ function App() {
               <AdminProtectedRoute exact path="/admin/dashboard/products" component={Products} />
               <AdminProtectedRoute
                 exact
+                path="/admin/dashboard/products/:id/variants"
+                component={VariantManager}
+              />
+              {/* back-compat alias for the old /shades path */}
+              <AdminProtectedRoute
+                exact
                 path="/admin/dashboard/products/:id/shades"
-                component={ShadeManager}
+                component={VariantManager}
               />
               <AdminProtectedRoute exact path="/admin/dashboard/banners" component={Banners} />
               <AdminProtectedRoute exact path="/admin/dashboard/reviews" component={Reviews} />

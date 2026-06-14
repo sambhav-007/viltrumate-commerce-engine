@@ -129,7 +129,7 @@ const Navbar = () => {
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search shades, products…"
+              placeholder="Search products…"
               className="w-full bg-transparent py-3 outline-none text-ink placeholder-gray-400 font-display text-xl"
             />
           </form>
@@ -221,7 +221,7 @@ const Navbar = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search shades, products…"
+              placeholder="Search products…"
               className="w-full bg-transparent py-2 outline-none text-ink placeholder-gray-400"
             />
           </form>
