@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import useInView from "./useInView";
 import { money, cld } from "./format";
+import { useContent } from "../config/content";
 
 const Stars = ({ rating }) =>
   rating && rating.count > 0 ? (
@@ -12,6 +13,7 @@ const Stars = ({ rating }) =>
   ) : null;
 
 const ProductCard = ({ product, index = 0 }) => {
+  const t = useContent();
   const img = product.coverImage && product.coverImage.url;
   const [ref, inView] = useInView();
   return (
@@ -35,7 +37,9 @@ const ProductCard = ({ product, index = 0 }) => {
           )}
         </div>
         <div className="pt-5 text-center">
-          <div className="eyebrow mb-1">{product.shadeCount || 0} Shades</div>
+          <div className="eyebrow mb-1">
+            {t("product.card.count", { count: product.shadeCount || 0 })}
+          </div>
           <h3 className="font-display text-xl text-ink group-hover:text-accent transition-colors">
             {product.name}
           </h3>
