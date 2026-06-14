@@ -46,15 +46,17 @@ async function applyStoreSettings(manifest) {
     doc.features = { ...current, ...c.features }; // unspecified flags keep schema defaults
   }
 
-  // Storefront copy overrides (slot key -> string). Merge so a re-brand can
-  // update individual slots without wiping the rest.
+  // Storefront copy overrides. Manifest supplies an object {key: string};
+  // stored as [{k,v}] pairs (dots aren't allowed in DB field names). Merge so a
+  // re-brand can update individual slots without wiping the rest.
   const content = manifest.store && manifest.store.content;
   if (content && Object.keys(content).length) {
-    const current =
-      doc.content && typeof doc.content.toObject === "function"
-        ? doc.content.toObject()
-        : doc.content || {};
-    doc.content = { ...current, ...content };
+    const merged = {};
+    (doc.content || []).forEach((e) => {
+      if (e && e.k) merged[e.k] = e.v;
+    });
+    Object.assign(merged, content);
+    doc.content = Object.entries(merged).map(([k, v]) => ({ k, v }));
   }
 
   await doc.save();

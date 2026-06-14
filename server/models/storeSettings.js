@@ -43,6 +43,15 @@ const featuresSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Storefront copy override: one slot key -> string. Stored as an array of pairs
+// (not a Map/object) because slot keys contain dots (e.g. "home.hero.eyebrow")
+// and MongoDB forbids dots in field names. The client normalizes this back to a
+// lookup object.
+const contentEntrySchema = new mongoose.Schema(
+  { k: { type: String }, v: { type: String, default: "" } },
+  { _id: false }
+);
+
 // Singleton document holding all global, admin-editable store configuration:
 // identity, theme, payment, SEO and feature flags. Nothing here is hardcoded.
 const storeSettingsSchema = new mongoose.Schema(
@@ -66,9 +75,9 @@ const storeSettingsSchema = new mongoose.Schema(
     payment: { type: paymentSchema, default: () => ({}) },
     seo: { type: seoSchema, default: () => ({}) },
     features: { type: featuresSchema, default: () => ({}) },
-    // Per-store storefront copy overrides (slot key -> string). Empty falls back
-    // to the generic defaults in client/src/config/content.js.
-    content: { type: Map, of: String, default: {} },
+    // Per-store storefront copy overrides ([{k,v}] pairs). Empty falls back to
+    // the generic defaults in client/src/config/content.js.
+    content: { type: [contentEntrySchema], default: [] },
   },
   { timestamps: true }
 );

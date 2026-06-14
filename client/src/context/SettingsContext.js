@@ -8,7 +8,19 @@ export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    getSettings().then((res) => setSettings((res && res.settings) || {}));
+    getSettings().then((res) => {
+      const s = (res && res.settings) || {};
+      // content is stored as [{k,v}] pairs (dots aren't allowed in DB field
+      // names); normalize to a {key: value} lookup for resolveContent.
+      if (Array.isArray(s.content)) {
+        const o = {};
+        s.content.forEach((e) => {
+          if (e && e.k) o[e.k] = e.v;
+        });
+        s.content = o;
+      }
+      setSettings(s);
+    });
   }, []);
 
   return (
