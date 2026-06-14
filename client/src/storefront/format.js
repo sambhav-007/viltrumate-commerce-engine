@@ -1,4 +1,7 @@
-export const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+import { CURRENCY_SYMBOL, LOCALE } from "../config/store.config";
+
+export const money = (n) =>
+  `${CURRENCY_SYMBOL}${Number(n || 0).toLocaleString(LOCALE)}`;
 
 // Lowest active shade price for a product's shade list.
 export const fromPrice = (shades = []) => {

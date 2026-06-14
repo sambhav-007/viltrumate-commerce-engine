@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { STORE_NAME } from "../config/store.config";
 
-// Renders the Aura Rare logo image; falls back to a typographic wordmark
+// Renders the store logo image; falls back to a typographic wordmark
 // if /logo.png is missing, so the header never breaks.
-const Logo = ({ height = 44, fallbackName = "Aura Rare", className = "" }) => {
+const Logo = ({ height = 44, fallbackName = STORE_NAME, className = "" }) => {
   const [broken, setBroken] = useState(false);
   if (broken) {
     return (

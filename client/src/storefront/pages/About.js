@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import Layout from "../Layout";
 import { useSettings } from "../../context/SettingsContext";
+import { STORE_NAME } from "../../config/store.config";
 
 const About = () => {
   const s = useSettings();
@@ -12,7 +13,7 @@ const About = () => {
         <h1 className="display-hero mb-10">Rare by Nature</h1>
         <p className="text-muted text-lg leading-relaxed mb-12" style={{ whiteSpace: "pre-line" }}>
           {s.aboutUs ||
-            "Aura Rare is a premium cosmetics house crafting considered, wearable shades — made to let your natural glow lead."}
+            `${STORE_NAME} is a premium house crafting considered, beautifully made pieces — designed to let what's best about you lead.`}
         </p>
         <Link to="/category" className="btn-outline">Explore the Collection</Link>
       </div>

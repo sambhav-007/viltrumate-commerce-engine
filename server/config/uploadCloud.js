@@ -1,6 +1,7 @@
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { cloudinary } = require("./cloudinary");
+const { cloudinaryFolder } = require("./store.config");
 
 // Build a multer instance that streams uploads straight to Cloudinary.
 // No temporary disk paths are ever stored (Render's disk is ephemeral).
@@ -9,7 +10,7 @@ const makeUploader = (folder) =>
     storage: new CloudinaryStorage({
       cloudinary,
       params: {
-        folder: `aura-rare/${folder}`,
+        folder: `${cloudinaryFolder}/${folder}`,
         allowed_formats: ["jpg", "jpeg", "png", "webp"],
       },
     }),

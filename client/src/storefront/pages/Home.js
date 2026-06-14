@@ -7,6 +7,7 @@ import CategoryCard from "../CategoryCard";
 import Reveal from "../Reveal";
 import { useSettings } from "../../context/SettingsContext";
 import { getCategories, getProducts, getBanners } from "../../api/shop";
+import { STORE_NAME } from "../../config/store.config";
 
 const Home = () => {
   const s = useSettings();
@@ -80,7 +81,7 @@ const Home = () => {
               className="eyebrow mb-5"
               style={{ color: heroImg ? "#e8d6c0" : "var(--accent)" }}
             >
-              {s.storeName || "Aura Rare"} · Rare by Nature
+              {s.storeName || STORE_NAME} · Rare by Nature
             </div>
             <h1 className="display-hero mb-6">{heroHeading}</h1>
             <p
@@ -169,7 +170,7 @@ const Home = () => {
             <h2 className="display-1 mb-6">Rare by Nature</h2>
             <p className="text-muted text-lg leading-relaxed mb-8">
               {s.aboutUs ||
-                "Aura Rare is a premium cosmetics house crafting considered, wearable shades — made to let your natural glow lead."}
+                `${STORE_NAME} is a premium house crafting considered, beautifully made pieces — designed to let what's best about you lead.`}
             </p>
             <Link to="/category" className="btn-outline">Discover the Range</Link>
           </Reveal>
@@ -203,7 +204,7 @@ const Home = () => {
               finish effortless.”
             </p>
             <div className="text-muted text-sm tracking-luxe uppercase mt-8">
-              — The {s.storeName || "Aura Rare"} Community
+              — The {s.storeName || STORE_NAME} Community
             </div>
           </Reveal>
         </div>

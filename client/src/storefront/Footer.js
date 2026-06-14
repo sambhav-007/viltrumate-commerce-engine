@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import { getCategories } from "../api/shop";
+import { STORE_NAME } from "../config/store.config";
 
 const Col = ({ title, children }) => (
   <div>
@@ -84,7 +85,7 @@ const Footer = () => {
       {/* Bottom bar */}
       <div className="footer-hairline">
         <div className="aura-container py-5 flex flex-wrap items-center justify-between gap-2 text-xs footer-muted tracking-wide2 uppercase">
-          <span>© {new Date().getFullYear()} {s.storeName || "Aura Rare"}</span>
+          <span>© {new Date().getFullYear()} {s.storeName || STORE_NAME}</span>
           <span>Crafted with care · Ordered over WhatsApp</span>
         </div>
       </div>
@@ -92,7 +93,7 @@ const Footer = () => {
       {/* Giant brand wordmark */}
       <div className="footer-giant-wrap" aria-hidden="true">
         <div className="footer-giant font-display">
-          {(s.storeName || "Aura Rare").toUpperCase()}
+          {(s.storeName || STORE_NAME).toUpperCase()}
         </div>
       </div>
     </footer>

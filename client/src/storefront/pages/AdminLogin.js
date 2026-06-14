@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useHistory } from "react-router-dom";
 import { loginReq } from "../../components/shop/auth/fetchApi";
+import { STORE_NAME } from "../../config/store.config";
 
 const AdminLogin = () => {
   const history = useHistory();
@@ -25,7 +26,7 @@ const AdminLogin = () => {
       <form onSubmit={submit} className="bg-card p-8 rounded shadow w-full max-w-sm">
         <img
           src="/logo.png"
-          alt="Aura Rare"
+          alt={STORE_NAME}
           className="h-20 w-auto mx-auto mb-4"
           onError={(e) => (e.target.style.display = "none")}
         />

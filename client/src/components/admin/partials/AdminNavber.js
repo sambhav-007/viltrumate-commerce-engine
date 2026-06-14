@@ -1,5 +1,6 @@
 import React, { Fragment, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
+import { STORE_NAME } from "../../../config/store.config";
 
 const links = [
   { path: "/admin/dashboard", label: "Dashboard" },
@@ -56,7 +57,7 @@ const AdminNavber = () => {
           style={{ letterSpacing: "0.5rem" }}
           className="font-bold uppercase text-gray-800 text-xl md:text-2xl cursor-pointer"
         >
-          Aura Rare
+          {STORE_NAME}
         </span>
 
         {/* Right: actions */}

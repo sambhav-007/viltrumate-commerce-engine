@@ -4,6 +4,7 @@ import Layout from "../Layout";
 import { useCart } from "../../context/CartContext";
 import { useSettings } from "../../context/SettingsContext";
 import { money } from "../format";
+import { STORE_NAME } from "../../config/store.config";
 
 const Checkout = () => {
   const { items, total, clear } = useCart();
@@ -13,7 +14,7 @@ const Checkout = () => {
   const [err, setErr] = useState("");
 
   const buildMessage = () => {
-    const store = settings.storeName || "Aura Rare";
+    const store = settings.storeName || STORE_NAME;
     let m = `🛍️ *New Order — ${store}*\n`;
     m += `━━━━━━━━━━━━━━━\n\n`;
     m += `*Customer:* ${f.name}\n`;

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { getSettings } from "../api/shop";
+import { isFeatureEnabled } from "../config/features.config";
 
 const SettingsContext = createContext();
 
@@ -18,3 +19,10 @@ export const SettingsProvider = ({ children }) => {
 };
 
 export const useSettings = () => useContext(SettingsContext);
+
+// Resolve a feature flag against the current store's runtime settings,
+// falling back to client defaults. Generic: works for any registered flag.
+export const useFeature = (flag) => {
+  const settings = useContext(SettingsContext) || {};
+  return isFeatureEnabled(flag, settings);
+};

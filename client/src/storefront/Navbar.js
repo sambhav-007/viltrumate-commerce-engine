@@ -6,6 +6,7 @@ import { useSettings } from "../context/SettingsContext";
 import { getCategories, search as searchApi } from "../api/shop";
 import Logo from "./Logo";
 import { cld } from "./format";
+import { STORE_NAME } from "../config/store.config";
 
 const Navbar = () => {
   const history = useHistory();
@@ -83,7 +84,7 @@ const Navbar = () => {
         <Link to="/" className="flex items-center justify-center px-4">
           <Logo
             height={scrolled ? 52 : 68}
-            fallbackName={settings.storeName || "Aura Rare"}
+            fallbackName={settings.storeName || STORE_NAME}
             className="transition-all duration-300"
           />
         </Link>
@@ -210,7 +211,7 @@ const Navbar = () => {
         }}
       >
         <div className="flex items-center justify-between px-6 h-20 hairline-b">
-          <Logo height={44} fallbackName={settings.storeName || "Aura Rare"} />
+          <Logo height={44} fallbackName={settings.storeName || STORE_NAME} />
           <button onClick={() => setMenu(false)} className="text-3xl text-muted leading-none">
             ×
           </button>
