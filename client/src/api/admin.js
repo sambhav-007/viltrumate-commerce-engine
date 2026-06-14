@@ -93,6 +93,13 @@ export const getAllReviews = () => get("/reviews", auth());
 export const approveReview = (id) => put(`/reviews/${id}/approve`, {}, auth());
 export const deleteReview = (id) => del(`/reviews/${id}`, auth());
 
+/* ---- Orders ---- */
+// query e.g. "?status=pending&limit=50&page=1"; response: { orders, total, page, limit }
+export const getOrders = (query = "") => get(`/orders${query}`, auth());
+export const getOrder = (id) => get(`/orders/${id}`, auth());
+export const updateOrderStatus = (id, status) =>
+  patch(`/orders/${id}/status`, { status }, auth());
+
 /* ---- Settings ---- */
 export const getSettings = () => get("/settings");
 export const updateSettings = (obj) => put("/settings", form(obj), authForm());
