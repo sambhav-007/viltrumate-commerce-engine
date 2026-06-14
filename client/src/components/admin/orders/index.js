@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import AdminLayout from "../layout";
 import { getOrders, updateOrderStatus } from "../../../api/admin";
 import { Spinner, PageHeader, Btn, Modal, useToast } from "../ui";
@@ -25,8 +26,13 @@ const shortId = (id) => (id ? id.slice(-6).toUpperCase() : "—");
 const when = (d) => (d ? new Date(d).toLocaleString() : "—");
 
 const Orders = () => {
+  const location = useLocation();
+  // Initial filter can be deep-linked from the dashboard (?status=pending).
+  const initial = new URLSearchParams(location.search).get("status");
   const [list, setList] = useState(null);
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState(
+    FILTERS.includes(initial) ? initial : "pending"
+  );
   const [active, setActive] = useState(null); // order shown in the modal
   const { toast, node } = useToast();
 
