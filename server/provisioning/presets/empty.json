@@ -1,0 +1,8 @@
+{
+  "name": "Empty catalog",
+  "description": "Default for real client stores — no products. The client adds catalog via the admin (or a future CSV import).",
+  "categories": [],
+  "namedVariants": [],
+  "products": [],
+  "reviewsOnFirstVariant": []
+}
