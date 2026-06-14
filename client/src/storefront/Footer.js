@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import { getCategories } from "../api/shop";
 import { STORE_NAME } from "../config/store.config";
+import { useContent } from "../config/content";
 
 const Col = ({ title, children }) => (
   <div>
@@ -24,6 +25,7 @@ const FLink = ({ to, href, children }) =>
 
 const Footer = () => {
   const s = useSettings();
+  const t = useContent();
   const [cats, setCats] = useState([]);
   const wa = (s.whatsappNumber || "").replace(/\D/g, "");
 
@@ -39,12 +41,12 @@ const Footer = () => {
       <div className="aura-container pt-20 pb-16 grid grid-cols-2 md:grid-cols-4 gap-10">
         <div className="col-span-2 md:col-span-1">
           <div className="font-display text-2xl mb-4" style={{ color: "var(--cream)" }}>
-            Rare by Nature
+            {t("footer.tagline")}
           </div>
           <p className="text-sm leading-relaxed footer-muted max-w-xs">
             {s.aboutUs
               ? `${s.aboutUs.slice(0, 120)}${s.aboutUs.length > 120 ? "…" : ""}`
-              : "Premium cosmetics, thoughtfully made to let your natural glow lead."}
+              : t("footer.blurb")}
           </p>
           {wa && (
             <a
@@ -54,26 +56,26 @@ const Footer = () => {
               className="btn-accent mt-6 inline-flex"
               style={{ padding: "0.7rem 1.5rem" }}
             >
-              Order on WhatsApp
+              {t("footer.cta")}
             </a>
           )}
         </div>
 
-        <Col title="Shop">
-          <FLink to="/category">All Collections</FLink>
+        <Col title={t("footer.col.shop")}>
+          <FLink to="/category">{t("footer.col.shopAll")}</FLink>
           {cats.map((c) => (
             <FLink key={c._id} to={`/category/${c.slug}`}>{c.name}</FLink>
           ))}
         </Col>
 
-        <Col title="Explore">
+        <Col title={t("footer.col.explore")}>
           <FLink to="/about">Our Story</FLink>
           <FLink to="/contact">Contact</FLink>
           <FLink to="/search?q=">Search</FLink>
           <FLink to="/cart">Cart</FLink>
         </Col>
 
-        <Col title="Connect">
+        <Col title={t("footer.col.connect")}>
           {s.instagramUrl && <FLink href={s.instagramUrl}>Instagram</FLink>}
           {s.facebookUrl && <FLink href={s.facebookUrl}>Facebook</FLink>}
           {s.contactEmail && <FLink href={`mailto:${s.contactEmail}`}>{s.contactEmail}</FLink>}
@@ -86,7 +88,7 @@ const Footer = () => {
       <div className="footer-hairline">
         <div className="aura-container py-5 flex flex-wrap items-center justify-between gap-2 text-xs footer-muted tracking-wide2 uppercase">
           <span>© {new Date().getFullYear()} {s.storeName || STORE_NAME}</span>
-          <span>Crafted with care · Ordered over WhatsApp</span>
+          <span>{t("footer.strip")}</span>
         </div>
       </div>
 

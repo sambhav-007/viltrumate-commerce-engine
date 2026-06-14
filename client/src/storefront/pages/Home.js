@@ -7,10 +7,11 @@ import CategoryCard from "../CategoryCard";
 import Reveal from "../Reveal";
 import { useSettings } from "../../context/SettingsContext";
 import { getCategories, getProducts, getBanners } from "../../api/shop";
-import { STORE_NAME } from "../../config/store.config";
+import { useContent } from "../../config/content";
 
 const Home = () => {
   const s = useSettings();
+  const t = useContent();
   const [cats, setCats] = useState([]);
   const [products, setProducts] = useState([]);
   const [banner, setBanner] = useState(null);
@@ -35,8 +36,8 @@ const Home = () => {
 
   const heroImg =
     (s.heroImage && s.heroImage.url) || (banner && banner.image && banner.image.url);
-  const heroHeading = s.heroHeading || "Beauty That Speaks For Itself";
-  const heroSub = s.heroSubheading || "Discover shades crafted for every mood.";
+  const heroHeading = s.heroHeading || t("home.hero.heading");
+  const heroSub = s.heroSubheading || t("home.hero.sub");
 
   // Read the hero image's natural aspect ratio so the section height adapts
   // to it (box matches the image → full image shown, no crop, no letterbox).
@@ -81,7 +82,7 @@ const Home = () => {
               className="eyebrow mb-5"
               style={{ color: heroImg ? "#e8d6c0" : "var(--accent)" }}
             >
-              {s.storeName || STORE_NAME} · Rare by Nature
+              {t("home.hero.eyebrow")}
             </div>
             <h1 className="display-hero mb-6">{heroHeading}</h1>
             <p
@@ -91,7 +92,7 @@ const Home = () => {
               {heroSub}
             </p>
             <Link to="/category" className={heroImg ? "btn-accent" : "btn-ink"}>
-              Explore Collection
+              {t("home.hero.cta")}
             </Link>
           </motion.div>
         </div>
@@ -104,7 +105,7 @@ const Home = () => {
             color: heroImg ? "rgba(255,255,255,.8)" : "var(--muted)",
           }}
         >
-          Scroll
+          {t("home.hero.scroll")}
         </div>
       </section>
 
@@ -113,8 +114,8 @@ const Home = () => {
         <section className="section">
           <div className="aura-container">
             <Reveal className="text-center mb-16">
-              <div className="eyebrow mb-3">Collections</div>
-              <h2 className="display-1">Shop by Category</h2>
+              <div className="eyebrow mb-3">{t("home.categories.eyebrow")}</div>
+              <h2 className="display-1">{t("home.categories.title")}</h2>
             </Reveal>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
               {cats.map((c, i) => (
@@ -131,10 +132,12 @@ const Home = () => {
           <div className="aura-container">
             <Reveal className="flex items-end justify-between mb-16">
               <div>
-                <div className="eyebrow mb-3">Loved Most</div>
-                <h2 className="display-1">Best Sellers</h2>
+                <div className="eyebrow mb-3">{t("home.bestsellers.eyebrow")}</div>
+                <h2 className="display-1">{t("home.bestsellers.title")}</h2>
               </div>
-              <Link to="/category" className="nav-link hidden md:block">View All</Link>
+              <Link to="/category" className="nav-link hidden md:block">
+                {t("home.bestsellers.viewAll")}
+              </Link>
             </Reveal>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
               {bestSellers.map((p, i) => (
@@ -166,13 +169,12 @@ const Home = () => {
             </div>
           </Reveal>
           <Reveal delay={0.1}>
-            <div className="eyebrow mb-4">Our Story</div>
-            <h2 className="display-1 mb-6">Rare by Nature</h2>
+            <div className="eyebrow mb-4">{t("home.story.eyebrow")}</div>
+            <h2 className="display-1 mb-6">{t("home.story.title")}</h2>
             <p className="text-muted text-lg leading-relaxed mb-8">
-              {s.aboutUs ||
-                `${STORE_NAME} is a premium house crafting considered, beautifully made pieces — designed to let what's best about you lead.`}
+              {s.aboutUs || t("home.story.body")}
             </p>
-            <Link to="/category" className="btn-outline">Discover the Range</Link>
+            <Link to="/category" className="btn-outline">{t("home.story.cta")}</Link>
           </Reveal>
         </div>
       </section>
@@ -182,8 +184,8 @@ const Home = () => {
         <section className="section bg-sand">
           <div className="aura-container">
             <Reveal className="text-center mb-16">
-              <div className="eyebrow mb-3">The Edit</div>
-              <h2 className="display-1">Featured Shades</h2>
+              <div className="eyebrow mb-3">{t("home.featured.eyebrow")}</div>
+              <h2 className="display-1">{t("home.featured.title")}</h2>
             </Reveal>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
               {moreProducts.map((p, i) => (
@@ -194,29 +196,32 @@ const Home = () => {
         </section>
       )}
 
-      {/* ---------- TESTIMONIAL BAND ---------- */}
-      <section className="section">
-        <div className="aura-container text-center max-w-3xl">
-          <Reveal>
-            <div className="eyebrow mb-6">Loved by Many</div>
-            <p className="display-2 leading-snug">
-              “Quiet luxury you can wear every day. The shades feel considered, the
-              finish effortless.”
-            </p>
-            <div className="text-muted text-sm tracking-luxe uppercase mt-8">
-              — The {s.storeName || STORE_NAME} Community
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      {/* ---------- TESTIMONIAL BAND (shown only when a quote is configured) ---------- */}
+      {t("home.testimonial.quote") && (
+        <section className="section">
+          <div className="aura-container text-center max-w-3xl">
+            <Reveal>
+              <div className="eyebrow mb-6">{t("home.testimonial.eyebrow")}</div>
+              <p className="display-2 leading-snug">{t("home.testimonial.quote")}</p>
+              {t("home.testimonial.attribution") && (
+                <div className="text-muted text-sm tracking-luxe uppercase mt-8">
+                  {t("home.testimonial.attribution")}
+                </div>
+              )}
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ---------- SOCIAL ---------- */}
       {(s.instagramUrl || s.facebookUrl) && (
         <section className="section bg-ink text-cream">
           <div className="aura-container text-center">
             <Reveal>
-              <div className="eyebrow mb-4" style={{ color: "#e8d6c0" }}>Follow</div>
-              <h2 className="display-1 mb-8">Join the Aura</h2>
+              <div className="eyebrow mb-4" style={{ color: "#e8d6c0" }}>
+                {t("home.social.eyebrow")}
+              </div>
+              <h2 className="display-1 mb-8">{t("home.social.title")}</h2>
               <div className="flex justify-center gap-4">
                 {s.instagramUrl && (
                   <a href={s.instagramUrl} target="_blank" rel="noopener noreferrer" className="btn-accent">
