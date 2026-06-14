@@ -17,3 +17,7 @@ export const search = (q) => get(`/search?q=${encodeURIComponent(q)}`);
 
 export const submitReview = (body) =>
   axios.post(`${base}/reviews`, body).then(data).catch(fail);
+
+// Records an order for any checkout method (WhatsApp, COD, …).
+export const createOrder = (body) =>
+  axios.post(`${base}/orders`, body).then(data).catch(fail);

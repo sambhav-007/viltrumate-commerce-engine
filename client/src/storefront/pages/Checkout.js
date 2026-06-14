@@ -4,7 +4,9 @@ import Layout from "../Layout";
 import { useCart } from "../../context/CartContext";
 import { useSettings } from "../../context/SettingsContext";
 import { money } from "../format";
-import { STORE_NAME } from "../../config/store.config";
+import { createOrder } from "../../api/shop";
+import { getEnabledProviders } from "../../payments";
+import { buildOrderPayload } from "../../payments/PaymentProvider";
 
 const Checkout = () => {
   const { items, total, clear } = useCart();
@@ -12,33 +14,41 @@ const Checkout = () => {
   const history = useHistory();
   const [f, setF] = useState({ name: "", phone: "", address: "" });
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const buildMessage = () => {
-    const store = settings.storeName || STORE_NAME;
-    let m = `🛍️ *New Order — ${store}*\n`;
-    m += `━━━━━━━━━━━━━━━\n\n`;
-    m += `*Customer:* ${f.name}\n`;
-    m += `*Phone:* ${f.phone}\n`;
-    m += `*Address:* ${f.address}\n\n`;
-    m += `*Order Details:*\n\n`;
-    items.forEach((it, i) => {
-      m += `${i + 1}. *${it.productName}*\n`;
-      m += `    Shade: ${it.shadeName}\n`;
-      m += `    Qty: ${it.qty} × ${money(it.price)} = ${money(it.price * it.qty)}\n\n`;
-    });
-    m += `━━━━━━━━━━━━━━━\n`;
-    m += `*Total: ${money(total)}*`;
-    return m;
-  };
+  // Available checkout methods for this store (feature-flag + config gated).
+  const providers = getEnabledProviders(settings);
+  const [method, setMethod] = useState(
+    providers.length ? providers[0].id : ""
+  );
 
-  const placeOrder = (e) => {
+  const placeOrder = async (e) => {
     e.preventDefault();
+    setErr("");
     if (!f.name.trim() || !f.phone.trim() || !f.address.trim())
       return setErr("Please fill in all fields.");
-    const number = (settings.whatsappNumber || "").replace(/\D/g, "");
-    if (!number) return setErr("Store WhatsApp number is not configured.");
-    const url = `https://wa.me/${number}?text=${encodeURIComponent(buildMessage())}`;
-    window.open(url, "_blank");
+    const provider = providers.find((p) => p.id === method);
+    if (!provider) return setErr("No checkout method is available.");
+
+    setBusy(true);
+    // 1) Persist the order first, so every method is recorded.
+    const payload = buildOrderPayload(items, total, f, provider.id);
+    const res = await createOrder(payload);
+    if (!res || res.error) {
+      setBusy(false);
+      return setErr((res && res.error) || "Could not place the order.");
+    }
+    // 2) Hand off to the selected provider.
+    const out = await provider.checkout({
+      items,
+      total,
+      customer: f,
+      settings,
+      orderId: res.order && res.order._id,
+    });
+    setBusy(false);
+    if (!out.ok) return setErr(out.error || "Checkout failed.");
+    if (out.redirectUrl) window.open(out.redirectUrl, "_blank");
     clear();
     history.push("/thank-you");
   };
@@ -85,10 +95,39 @@ const Checkout = () => {
                 onChange={(e) => setF({ ...f, address: e.target.value })}
               />
             </label>
+
+            {/* Payment method (only shown when the store offers a choice) */}
+            {providers.length > 1 && (
+              <div className="mb-6">
+                <span className="text-sm text-muted">Payment Method</span>
+                <div className="mt-2 space-y-2">
+                  {providers.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="method"
+                        checked={method === p.id}
+                        onChange={() => setMethod(p.id)}
+                      />
+                      <span className="text-sm">{p.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {err && <p className="text-sm text-red-600 mb-4">{err}</p>}
-            <button className="btn-accent w-full">Place Order via WhatsApp</button>
+            {providers.length === 0 ? (
+              <p className="text-sm text-red-600">
+                This store has no checkout method configured.
+              </p>
+            ) : (
+              <button className="btn-accent w-full" disabled={busy}>
+                {busy ? "Placing…" : "Place Order"}
+              </button>
+            )}
             <p className="text-xs text-muted mt-3 text-center">
-              You'll be redirected to WhatsApp to confirm your order. No online payment.
+              No online payment. Your order is confirmed by the store.
             </p>
           </form>
         </div>

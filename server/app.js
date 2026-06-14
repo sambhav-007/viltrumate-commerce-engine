@@ -44,6 +44,7 @@ const bannerRouter = require("./routes/banners");
 const settingsRouter = require("./routes/settings");
 const searchRouter = require("./routes/search");
 const statsRouter = require("./routes/stats");
+const orderRouter = require("./routes/orders");
 
 /*
  * SOFT-DEPRECATED (disconnected, files retained until full storefront/admin
@@ -80,9 +81,13 @@ app.use(express.json({ limit: "1mb" }));
 // Rate limits: brute-force guard on login, spam guard on guest reviews.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 const reviewLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+const orderLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30 });
 app.use("/api/signin", authLimiter);
 app.use("/api/reviews", (req, res, next) =>
   req.method === "POST" ? reviewLimiter(req, res, next) : next()
+);
+app.use("/api/orders", (req, res, next) =>
+  req.method === "POST" ? orderLimiter(req, res, next) : next()
 );
 
 // Routes
@@ -96,6 +101,7 @@ app.use("/api/banners", bannerRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/orders", orderRouter);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
