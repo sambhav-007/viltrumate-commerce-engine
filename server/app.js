@@ -7,32 +7,14 @@
 const express = require("express");
 const app = express();
 require("dotenv").config();
-const mongoose = require("mongoose");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
-const dns = require("dns");
-
-/*
- * mongodb+srv:// needs a DNS SRV lookup. Node's c-ares resolver fails with
- * `querySrv ECONNREFUSED` when the OS DNS server is an IPv6 link-local
- * address (common on Windows). Point the resolver at a reliable DNS server.
- * Override with DNS_SERVERS="1.1.1.1,8.8.8.8", or DNS_SERVERS="off" to skip.
- */
-if (process.env.DNS_SERVERS !== "off") {
-  const servers = (process.env.DNS_SERVERS || "8.8.8.8,1.1.1.1")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  try {
-    dns.setServers(servers);
-  } catch (e) {
-    console.log("Could not set DNS servers:", e.message);
-  }
-}
+// Shared MongoDB connection helper (DNS-SRV workaround + credential-leak guard).
+const { connect: connectDb } = require("./config/db");
 
 // Active routers (VCE commerce engine)
 const authRouter = require("./routes/auth"); // admin login
@@ -53,12 +35,7 @@ const orderRouter = require("./routes/orders");
  */
 
 // Database Connection
-mongoose
-  .connect(process.env.DATABASE, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  })
+connectDb()
   .then(async () => {
     console.log("==== MongoDB Connected ====");
     // Load this store's feature flags into the runtime guard at boot.

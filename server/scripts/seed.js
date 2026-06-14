@@ -5,6 +5,7 @@
  */
 require("dotenv").config();
 const mongoose = require("mongoose");
+const { connect } = require("../config/db");
 const { baseSlug } = require("../config/slug");
 
 const Category = require("../models/categories");
@@ -16,11 +17,7 @@ const StoreSettings = require("../models/storeSettings");
 const pad2 = (n) => String(n).padStart(2, "0");
 
 async function run() {
-  await mongoose.connect(process.env.DATABASE, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  });
+  await connect();
   console.log("Connected. Clearing catalog…");
   await Promise.all([
     Category.deleteMany({}),

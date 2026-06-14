@@ -5,7 +5,7 @@
  * Run: node scripts/cleanupTestDb.js
  */
 require("dotenv").config();
-const mongoose = require("mongoose");
+const { createConnection } = require("../config/db");
 
 // Collections this app owns.
 const OURS = [
@@ -30,10 +30,7 @@ function testUri() {
 async function run() {
   const uri = testUri();
   console.log("Connecting to:", uri.replace(/:[^:@]*@/, ":****@"));
-  const conn = await mongoose.createConnection(uri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  const conn = await createConnection(uri);
 
   const existing = (await conn.db.listCollections().toArray()).map((c) => c.name);
   console.log("Found in test:", existing.join(", ") || "(none)");
