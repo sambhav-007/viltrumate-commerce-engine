@@ -3,8 +3,10 @@ import Layout from "../Layout";
 import CategoryCard from "../CategoryCard";
 import Reveal from "../Reveal";
 import { getCategories, getProducts } from "../../api/shop";
+import { useContent } from "../../config/content";
 
 const Collections = () => {
+  const t = useContent();
   const [cats, setCats] = useState([]);
   const [counts, setCounts] = useState({});
 
@@ -26,8 +28,8 @@ const Collections = () => {
     <Layout>
       <div className="aura-container py-16 md:py-24">
         <Reveal className="text-center mb-16">
-          <div className="eyebrow mb-3">Explore</div>
-          <h1 className="display-hero">Collections</h1>
+          <div className="eyebrow mb-3">{t("collections.eyebrow")}</div>
+          <h1 className="display-hero">{t("collections.title")}</h1>
         </Reveal>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
           {cats.map((c, i) => (

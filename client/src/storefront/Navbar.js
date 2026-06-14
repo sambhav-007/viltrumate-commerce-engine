@@ -7,11 +7,13 @@ import { getCategories, search as searchApi } from "../api/shop";
 import Logo from "./Logo";
 import { cld } from "./format";
 import { STORE_NAME } from "../config/store.config";
+import { useContent } from "../config/content";
 
 const Navbar = () => {
   const history = useHistory();
   const { count, setOpen } = useCart();
   const settings = useSettings();
+  const t = useContent();
   const [cats, setCats] = useState([]);
   const [q, setQ] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -71,7 +73,7 @@ const Navbar = () => {
             ☰
           </button>
           <nav className="hidden md:flex items-center space-x-9">
-            <Link to="/category" className="nav-link">Shop</Link>
+            <Link to="/category" className="nav-link">{t("nav.shop")}</Link>
             {cats.slice(0, 4).map((c) => (
               <Link key={c._id} to={`/category/${c.slug}`} className="nav-link">
                 {c.name}
@@ -231,7 +233,7 @@ const Navbar = () => {
               className="font-display text-2xl text-ink"
               onClick={() => setMenu(false)}
             >
-              Shop All
+              {t("nav.shopAll")}
             </Link>
             {cats.map((c) => (
               <Link
@@ -246,7 +248,7 @@ const Navbar = () => {
           </nav>
         </div>
         <div className="mt-auto px-6 py-6 hairline-t text-xs text-muted tracking-luxe uppercase">
-          Order via WhatsApp
+          {t("nav.cta")}
         </div>
           </aside>
         </>,

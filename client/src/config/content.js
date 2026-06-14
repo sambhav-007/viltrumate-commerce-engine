@@ -108,6 +108,8 @@ export const resolveContent = (settings = {}, key, vars = {}) => {
     storeName: settings.storeName || STORE_NAME,
     variantLabel,
     variantLabelPlural: plural(variantLabel),
+    contactPhone: settings.contactPhone || "",
+    contactEmail: settings.contactEmail || "",
     year: new Date().getFullYear(),
     ...vars,
   };
