@@ -47,6 +47,7 @@ function withDefaults(m) {
   };
 
   s.catalog = s.catalog || { preset: "empty" };
+  s.content = s.content || {}; // storefront copy overrides (slot key -> string)
 
   m.admin = m.admin || {};
   m.admin.name = m.admin.name || "Store Admin";

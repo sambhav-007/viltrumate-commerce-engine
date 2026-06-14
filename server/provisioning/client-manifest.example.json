@@ -46,7 +46,8 @@
         "defaultProvider": "whatsapp"
       }
     },
-    "catalog": { "preset": "empty" }
+    "catalog": { "preset": "empty" },
+    "content": {}
   },
   "admin": {
     "email": "owner@acmeglow.com",

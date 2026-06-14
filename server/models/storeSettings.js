@@ -66,6 +66,9 @@ const storeSettingsSchema = new mongoose.Schema(
     payment: { type: paymentSchema, default: () => ({}) },
     seo: { type: seoSchema, default: () => ({}) },
     features: { type: featuresSchema, default: () => ({}) },
+    // Per-store storefront copy overrides (slot key -> string). Empty falls back
+    // to the generic defaults in client/src/config/content.js.
+    content: { type: Map, of: String, default: {} },
   },
   { timestamps: true }
 );
