@@ -1,6 +1,7 @@
 const StoreSettings = require("../models/storeSettings");
 const { toImage } = require("../config/uploadCloud");
 const { destroyAssets } = require("../config/cloudinary");
+const { setFeatureOverrides } = require("../config/features");
 
 const EDITABLE = [
   "storeName",
@@ -13,7 +14,21 @@ const EDITABLE = [
   "facebookUrl",
   "heroHeading",
   "heroSubheading",
+  "variantLabel",
 ];
+
+// Nested config sent (via multipart) as JSON strings — parse before assigning.
+const NESTED = ["theme", "payment", "seo", "features"];
+
+// Push the store's feature flags into the runtime guard (requireFeature).
+const syncFeatures = (settings) => {
+  const f = settings.features
+    ? typeof settings.features.toObject === "function"
+      ? settings.features.toObject()
+      : settings.features
+    : {};
+  setFeatureOverrides(f);
+};
 
 class SettingsController {
   // GET /api/settings -> the singleton (auto-created on first read)
@@ -21,6 +36,7 @@ class SettingsController {
     try {
       let settings = await StoreSettings.findOne({});
       if (!settings) settings = await StoreSettings.create({});
+      syncFeatures(settings);
       return res.json({ settings });
     } catch (err) {
       return res.status(500).json({ error: "Failed to load settings" });
@@ -44,6 +60,18 @@ class SettingsController {
       EDITABLE.forEach((key) => {
         if (req.body[key] !== undefined) settings[key] = req.body[key];
       });
+      NESTED.forEach((key) => {
+        if (req.body[key] === undefined) return;
+        let val = req.body[key];
+        if (typeof val === "string") {
+          try {
+            val = JSON.parse(val);
+          } catch (e) {
+            return; // ignore malformed nested payloads
+          }
+        }
+        settings[key] = val;
+      });
       if (req.file) {
         // Replace hero image (delete the old asset).
         const oldId = settings.heroImage && settings.heroImage.publicId;
@@ -56,6 +84,7 @@ class SettingsController {
         if (oldId) await destroyAssets(oldId);
       }
       await settings.save();
+      syncFeatures(settings);
       return res.json({ success: "Settings updated", settings });
     } catch (err) {
       if (req.file) await destroyAssets(req.file.filename);

@@ -59,7 +59,18 @@ mongoose
     useUnifiedTopology: true,
     useCreateIndex: true,
   })
-  .then(() => console.log("==== MongoDB Connected ===="))
+  .then(async () => {
+    console.log("==== MongoDB Connected ====");
+    // Load this store's feature flags into the runtime guard at boot.
+    try {
+      const StoreSettings = require("./models/storeSettings");
+      const { setFeatureOverrides } = require("./config/features");
+      const s = await StoreSettings.findOne({});
+      if (s && s.features) setFeatureOverrides(s.features.toObject());
+    } catch (e) {
+      console.log("Feature flag preload skipped:", e.message);
+    }
+  })
   .catch((err) => console.log("Database Not Connected !!!", err.message));
 
 // Middleware

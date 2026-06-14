@@ -6,6 +6,8 @@ import { CartProvider } from "./context/CartContext";
 import AdminProtectedRoute from "./components/shop/auth/AdminProtectedRoute";
 import TopLoader from "./storefront/TopLoader";
 import ScrollToTop from "./storefront/ScrollToTop";
+import ThemeApplier from "./storefront/ThemeApplier";
+import SeoHead from "./storefront/SeoHead";
 
 // Storefront (customer-critical path, bundled eagerly)
 import Home from "./storefront/pages/Home";
@@ -38,6 +40,8 @@ function App() {
   return (
     <SettingsProvider>
       <CartProvider>
+        <ThemeApplier />
+        <SeoHead />
         <TopLoader />
         <Router>
           <ScrollToTop />
