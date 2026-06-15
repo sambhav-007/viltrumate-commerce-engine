@@ -1,6 +1,6 @@
 import whatsapp from "./whatsapp";
 import cod from "./cod";
-import razorpay from "./razorpay.stub";
+import razorpay from "./razorpay";
 import stripe from "./stripe.stub";
 import { PAYMENT_DEFAULTS } from "../config/payment.config";
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useHistory } from "react-router-dom";
 import Layout from "../Layout";
 import { useCart } from "../../context/CartContext";
@@ -21,6 +21,15 @@ const Checkout = () => {
   const [method, setMethod] = useState(
     providers.length ? providers[0].id : ""
   );
+  // Settings load async: when providers arrive (or change), make sure `method`
+  // points at a real one (fixes direct-navigation to /checkout selecting "").
+  const providerIds = providers.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (providers.length && !providers.find((p) => p.id === method)) {
+      setMethod(providers[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerIds]);
 
   const placeOrder = async (e) => {
     e.preventDefault();
