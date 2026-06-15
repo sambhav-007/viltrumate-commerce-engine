@@ -80,6 +80,11 @@ export const updateShade = updateVariant;
 export const deleteShade = deleteVariant;
 export const deleteShadeImage = deleteVariantImage;
 
+/* ---- Product CSV import ---- */
+export const previewProductImport = (csv) =>
+  post("/products/import/preview", { csv }, auth());
+export const runProductImport = (csv) => post("/products/import", { csv }, auth());
+
 /* ---- Banners ---- */
 export const getBanners = (all = true) =>
   get(`/banners${all ? "?all=true" : ""}`);

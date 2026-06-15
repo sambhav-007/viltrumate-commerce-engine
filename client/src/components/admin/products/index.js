@@ -20,6 +20,7 @@ import {
   useToast,
   imgUrl,
 } from "../ui";
+import ImportModal from "./ImportModal";
 
 const empty = {
   name: "",
@@ -38,6 +39,7 @@ const Products = () => {
   const [fields, setFields] = useState(empty);
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const { toast, node } = useToast();
 
   const load = () =>
@@ -111,7 +113,14 @@ const Products = () => {
       <div className="p-4 md:p-8">
         <PageHeader
           title="Products"
-          action={<Btn onClick={openAdd}>+ Add Product</Btn>}
+          action={
+            <div className="flex gap-2">
+              <Btn variant="light" onClick={() => setImportOpen(true)}>
+                Import CSV
+              </Btn>
+              <Btn onClick={openAdd}>+ Add Product</Btn>
+            </div>
+          }
         />
         {!products ? (
           <Spinner />
@@ -288,6 +297,14 @@ const Products = () => {
           </div>
         </form>
       </Modal>
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => {
+          load();
+          getCategories().then((res) => setCategories(res.categories || []));
+        }}
+      />
       {node}
     </AdminLayout>
   );
