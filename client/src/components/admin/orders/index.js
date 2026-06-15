@@ -75,7 +75,7 @@ const Orders = () => {
           <Spinner />
         ) : (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
                   <th className="p-3">Order #</th>
@@ -98,9 +98,13 @@ const Orders = () => {
                 )}
                 {list.map((o) => (
                   <tr key={o._id} className="border-t">
-                    <td className="p-3 font-mono text-gray-700">{shortId(o._id)}</td>
-                    <td className="p-3 whitespace-nowrap">{when(o.createdAt)}</td>
-                    <td className="p-3">
+                    <td className="p-3 font-mono text-gray-700" data-label="Order #">
+                      {shortId(o._id)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap" data-label="Date">
+                      {when(o.createdAt)}
+                    </td>
+                    <td className="p-3" data-label="Customer">
                       <div className="font-medium text-gray-800">
                         {o.customer ? o.customer.name : "—"}
                       </div>
@@ -108,18 +112,28 @@ const Orders = () => {
                         {o.customer ? o.customer.phone : ""}
                       </div>
                     </td>
-                    <td className="p-3">
+                    <td className="p-3" data-label="Items">
                       {(o.items || []).reduce((n, it) => n + (it.qty || 0), 0)}
                     </td>
-                    <td className="p-3">{money(o.total)}</td>
-                    <td className="p-3 capitalize">{o.paymentMethod}</td>
-                    <td className={`p-3 capitalize ${STATUS_STYLE[o.status] || ""}`}>
+                    <td className="p-3" data-label="Total">{money(o.total)}</td>
+                    <td className="p-3 capitalize" data-label="Payment">
+                      {o.paymentMethod}
+                    </td>
+                    <td
+                      className={`p-3 capitalize ${STATUS_STYLE[o.status] || ""}`}
+                      data-label="Status"
+                    >
                       {o.status}
                     </td>
-                    <td className="p-3 text-right whitespace-nowrap">
-                      <Btn variant="light" onClick={() => setActive(o)}>
-                        View
-                      </Btn>
+                    <td
+                      className="p-3 text-right whitespace-nowrap admin-actions"
+                      data-label="Actions"
+                    >
+                      <div className="admin-actions-wrap">
+                        <Btn variant="light" onClick={() => setActive(o)}>
+                          View
+                        </Btn>
+                      </div>
                     </td>
                   </tr>
                 ))}

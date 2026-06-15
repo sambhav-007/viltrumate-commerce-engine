@@ -98,7 +98,7 @@ const Categories = () => {
           <Spinner />
         ) : (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
                   <th className="p-3">Image</th>
@@ -118,7 +118,7 @@ const Categories = () => {
                 )}
                 {list.map((c) => (
                   <tr key={c._id} className="border-t">
-                    <td className="p-3">
+                    <td className="p-3" data-label="Image">
                       {imgUrl(c.image) ? (
                         <img
                           src={c.image.url}
@@ -129,8 +129,10 @@ const Categories = () => {
                         <div className="w-12 h-12 bg-gray-100 rounded" />
                       )}
                     </td>
-                    <td className="p-3 font-medium text-gray-800">{c.name}</td>
-                    <td className="p-3">
+                    <td className="p-3 font-medium text-gray-800" data-label="Name">
+                      {c.name}
+                    </td>
+                    <td className="p-3" data-label="Status">
                       <span
                         className={
                           c.status === "Active"
@@ -141,14 +143,19 @@ const Categories = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="p-3">{c.order}</td>
-                    <td className="p-3 text-right space-x-2">
-                      <Btn variant="light" onClick={() => openEdit(c)}>
-                        Edit
-                      </Btn>
-                      <Btn variant="danger" onClick={() => remove(c)}>
-                        Delete
-                      </Btn>
+                    <td className="p-3" data-label="Order">{c.order}</td>
+                    <td
+                      className="p-3 text-right admin-actions"
+                      data-label="Actions"
+                    >
+                      <div className="admin-actions-wrap">
+                        <Btn variant="light" onClick={() => openEdit(c)}>
+                          Edit
+                        </Btn>
+                        <Btn variant="danger" onClick={() => remove(c)}>
+                          Delete
+                        </Btn>
+                      </div>
                     </td>
                   </tr>
                 ))}

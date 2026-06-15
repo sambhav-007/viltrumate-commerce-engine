@@ -133,7 +133,7 @@ const Products = () => {
             <div key={cat} className="mb-6">
               <h2 className="text-lg font-semibold text-gray-700 mb-2">{cat}</h2>
               <div className="bg-white rounded-lg shadow overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="admin-table w-full text-sm">
                   <thead className="bg-gray-50 text-gray-600 text-left">
                     <tr>
                       <th className="p-3">Cover</th>
@@ -147,7 +147,7 @@ const Products = () => {
                   <tbody>
                     {groups[cat].map((p) => (
                       <tr key={p._id} className="border-t">
-                        <td className="p-3">
+                        <td className="p-3" data-label="Cover">
                           {imgUrl(p.coverImage) ? (
                             <img
                               src={p.coverImage.url}
@@ -158,18 +158,20 @@ const Products = () => {
                             <div className="w-12 h-12 bg-gray-100 rounded" />
                           )}
                         </td>
-                        <td className="p-3 font-medium text-gray-800">
+                        <td className="p-3 font-medium text-gray-800" data-label="Name">
                           {p.name}
                         </td>
-                        <td className="p-3">{p.shadeCount || 0}</td>
-                        <td className="p-3">
+                        <td className="p-3" data-label="Variants">
+                          {p.shadeCount || 0}
+                        </td>
+                        <td className="p-3" data-label="Featured">
                           {p.isFeatured ? (
                             <span className="text-yellow-600">★ Yes</span>
                           ) : (
                             <span className="text-gray-400">No</span>
                           )}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3" data-label="Status">
                           <span
                             className={
                               p.status === "Active"
@@ -180,22 +182,27 @@ const Products = () => {
                             {p.status}
                           </span>
                         </td>
-                        <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                          <Btn
-                            onClick={() =>
-                              history.push(
-                                `/admin/dashboard/products/${p._id}/shades`
-                              )
-                            }
-                          >
-                            Manage Shades
-                          </Btn>
-                          <Btn variant="light" onClick={() => openEdit(p)}>
-                            Edit
-                          </Btn>
-                          <Btn variant="danger" onClick={() => remove(p)}>
-                            Delete
-                          </Btn>
+                        <td
+                          className="p-3 text-right whitespace-nowrap admin-actions"
+                          data-label="Actions"
+                        >
+                          <div className="admin-actions-wrap">
+                            <Btn
+                              onClick={() =>
+                                history.push(
+                                  `/admin/dashboard/products/${p._id}/shades`
+                                )
+                              }
+                            >
+                              Manage Shades
+                            </Btn>
+                            <Btn variant="light" onClick={() => openEdit(p)}>
+                              Edit
+                            </Btn>
+                            <Btn variant="danger" onClick={() => remove(p)}>
+                              Delete
+                            </Btn>
+                          </div>
                         </td>
                       </tr>
                     ))}
