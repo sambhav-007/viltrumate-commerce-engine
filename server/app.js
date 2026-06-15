@@ -27,6 +27,7 @@ const settingsRouter = require("./routes/settings");
 const searchRouter = require("./routes/search");
 const statsRouter = require("./routes/stats");
 const orderRouter = require("./routes/orders");
+const paymentRouter = require("./routes/payments");
 
 /*
  * SOFT-DEPRECATED (disconnected, files retained until full storefront/admin
@@ -64,7 +65,15 @@ const origins = (process.env.CORS_ORIGINS || "")
   .filter(Boolean);
 app.use(cors(origins.length ? { origin: origins } : {}));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
-app.use(express.json({ limit: "1mb" }));
+// Stash the raw body so the Razorpay webhook can verify its HMAC signature.
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 
 // Rate limits: brute-force guard on login, spam guard on guest reviews.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
@@ -90,6 +99,7 @@ app.use("/api/settings", settingsRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/orders", orderRouter);
+app.use("/api/payments", paymentRouter);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 

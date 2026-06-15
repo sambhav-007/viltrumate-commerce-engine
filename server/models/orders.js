@@ -26,6 +26,12 @@ const orderSchema = new mongoose.Schema(
     },
     total: { type: Number, default: 0 },
     paymentMethod: { type: String, default: "whatsapp" }, // provider id
+    // Online-payment references (Razorpay etc.). Optional — WhatsApp/COD leave it empty.
+    payment: {
+      providerOrderId: { type: String, default: "" },
+      providerPaymentId: { type: String, default: "" },
+      paidAt: { type: Date, default: null },
+    },
     // Fulfillment workflow. "fulfilled" added in VCE Beta (additive — existing
     // docs only ever hold the original three values, so no migration needed).
     status: {
