@@ -33,7 +33,7 @@ const FEATURE_KEYS = Object.keys(DEFAULT_FEATURES);
 const PROVIDERS = [
   ["whatsapp", "WhatsApp"],
   ["cod", "Cash on Delivery"],
-  ["razorpay", "Razorpay (coming soon)"],
+  ["razorpay", "Razorpay"],
   ["stripe", "Stripe (coming soon)"],
 ];
 

@@ -43,7 +43,8 @@
       },
       "payment": {
         "enabledProviders": ["whatsapp", "cod"],
-        "defaultProvider": "whatsapp"
+        "defaultProvider": "whatsapp",
+        "razorpay": { "keyId": "" }
       }
     },
     "catalog": { "preset": "empty" },
@@ -60,5 +61,5 @@
     "client": { "url": "http://localhost:3000" }
   },
 
-  "_forwardCompatNotes": "Reserved for future phases (ignored by v1 provisioning, additive — never remove existing keys): store.domains[] for custom domains; tenancy{enabled,strategy} for tenant routing; admin -> admins[] for multiple admins; notifications.email{} for merchant email; commerce.payment.razorpay{} / .stripe{} for online gateways. Secrets NEVER belong in this file."
+  "_forwardCompatNotes": "commerce.payment.razorpay.keyId is the PUBLIC key id (rzp_test_/rzp_live_); the key secret + webhook secret come from the operator env (PROVISION_RAZORPAY_KEY_SECRET / PROVISION_RAZORPAY_WEBHOOK_SECRET) at provision time. To enable online payment add \"razorpay\" to enabledProviders. Reserved for future phases (ignored by v1 provisioning, additive — never remove existing keys): store.domains[] for custom domains; tenancy{enabled,strategy} for tenant routing; admin -> admins[] for multiple admins; notifications.email{} for merchant email; commerce.payment.stripe{} for Stripe. Secrets NEVER belong in this file."
 }

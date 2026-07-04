@@ -15,6 +15,9 @@ export CLOUDINARY_CLOUD_NAME="..."
 export CLOUDINARY_API_KEY="..."
 export CLOUDINARY_API_SECRET="..."
 # optional: export DNS_SERVERS="8.8.8.8,1.1.1.1"
+# optional (only for stores with online payment — see "Razorpay" below):
+export PROVISION_RAZORPAY_KEY_SECRET="..."
+export PROVISION_RAZORPAY_WEBHOOK_SECRET="..."   # optional webhook backstop
 ```
 
 ## Provision a new client store
@@ -56,6 +59,20 @@ export CLOUDINARY_API_SECRET="..."
 | Commerce | enabled payment methods, feature flags |
 | Admin | initial admin user (password generated if omitted) |
 | Infrastructure | database name, Cloudinary folder |
+
+## Razorpay (online payment)
+
+To provision a store with online payment enabled:
+
+1. In the manifest: add `"razorpay"` to `commerce.payment.enabledProviders` and set
+   `commerce.payment.razorpay.keyId` to the store's **public** key id (`rzp_test_…` /
+   `rzp_live_…` — safe in the manifest, Checkout sends it to the browser anyway).
+2. In the operator environment: set `PROVISION_RAZORPAY_KEY_SECRET` (required) and
+   optionally `PROVISION_RAZORPAY_WEBHOOK_SECRET`.
+
+Provisioning writes `RAZORPAY_*` into `server/.env` and enables the provider via
+`StoreSettings.payment.enabledProviders`. Enabling `razorpay` without keys **fails fast** —
+a store must never ship with a broken money path. WhatsApp/COD stores need none of this.
 
 ## Catalog presets
 

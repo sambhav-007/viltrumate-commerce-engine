@@ -20,6 +20,35 @@ function buildDatabaseUri(dbName) {
   return `${base}/${dbName}?retryWrites=true&w=majority`;
 }
 
+// Razorpay per-store config. The key id is public (Checkout sends it to the
+// browser) so it may live in the manifest; the key/webhook secrets come from
+// the operator environment ONLY. Enabling the provider without keys is a
+// money-path misconfiguration, so we fail fast instead of provisioning a
+// store whose online checkout silently 500s.
+function razorpayEnv(manifest) {
+  const payment = (manifest.store.commerce && manifest.store.commerce.payment) || {};
+  const enabled = (payment.enabledProviders || []).includes("razorpay");
+  const keyId =
+    (payment.razorpay && payment.razorpay.keyId) ||
+    process.env.PROVISION_RAZORPAY_KEY_ID ||
+    "";
+  const keySecret = process.env.PROVISION_RAZORPAY_KEY_SECRET || "";
+  const webhookSecret = process.env.PROVISION_RAZORPAY_WEBHOOK_SECRET || "";
+  if (enabled && (!keyId || !keySecret)) {
+    throw new Error(
+      "razorpay is in payment.enabledProviders but keys are missing — set " +
+        "commerce.payment.razorpay.keyId in the manifest (or PROVISION_RAZORPAY_KEY_ID) " +
+        "and PROVISION_RAZORPAY_KEY_SECRET in the operator environment"
+    );
+  }
+  if (!keyId && !keySecret) return {}; // store without online payments
+  return {
+    RAZORPAY_KEY_ID: keyId,
+    RAZORPAY_KEY_SECRET: keySecret,
+    RAZORPAY_WEBHOOK_SECRET: webhookSecret || undefined,
+  };
+}
+
 const render = (obj) =>
   Object.entries(obj)
     .filter(([, v]) => v !== undefined && v !== null)
@@ -57,6 +86,7 @@ function generateEnv(
     LOCALE: idn.locale,
     JWT_SECRET: crypto.randomBytes(48).toString("hex"),
     CORS_ORIGINS: (infra.client && infra.client.url) || "",
+    ...razorpayEnv(manifest),
   });
 
   const clientEnv = render({
