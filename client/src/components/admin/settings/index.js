@@ -44,6 +44,17 @@ const Section = ({ title, children }) => (
   </div>
 );
 
+const SECTION_LABELS = {
+  identity: "Identity",
+  theme: "Theme & Typography",
+  layout: "Layout",
+  payment: "Payment",
+  seo: "SEO",
+  features: "Features",
+  stats: "Trust Stats",
+  content: "Storefront Copy",
+};
+
 const Settings = () => {
   const [s, setS] = useState(null);
   const [file, setFile] = useState(null);
@@ -81,6 +92,10 @@ const Settings = () => {
       },
     });
   const setMotion = (v) => setS({ ...s, theme: { ...theme, motion: v } });
+  // Sections managed by the agency (VCE Panel) are hidden here — the API
+  // also rejects writes to them, this is not just cosmetic.
+  const lockedSections = (s && s.lockedSections) || [];
+  const isLocked = (k) => lockedSections.includes(k);
   const layout = (s && s.layout) || {};
   const setLayout = (k, v) => setS({ ...s, layout: { ...layout, [k]: v } });
 
@@ -155,8 +170,16 @@ const Settings = () => {
     <AdminLayout>
       <div className="p-4 md:p-8 max-w-3xl">
         <PageHeader title="Store Settings" />
+        {lockedSections.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-4 mb-6">
+            Managed by your agency:{" "}
+            {lockedSections.map((k) => SECTION_LABELS[k] || k).join(", ")}.
+            Contact them to change these.
+          </div>
+        )}
         <form onSubmit={submit}>
           {/* Identity */}
+          {!isLocked("identity") && (
           <Section title="Identity">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
               {TEXT_FIELDS.map(([key, label]) => (
@@ -201,8 +224,10 @@ const Settings = () => {
               />
             </Field>
           </Section>
+          )}
 
           {/* Theme */}
+          {!isLocked("theme") && (
           <Section title="Theme">
             <p className="text-sm text-gray-500 mb-3">
               Override brand colors. Leave blank to use the default.
@@ -233,8 +258,10 @@ const Settings = () => {
               />
             </Field>
           </Section>
+          )}
 
           {/* Typography & Motion (3B personality) */}
+          {!isLocked("theme") && (
           <Section title="Typography & Motion">
             <p className="text-sm text-gray-500 mb-3">
               Per-store fonts and animation. Leave blank to use the engine
@@ -271,6 +298,7 @@ const Settings = () => {
                 <option value="reduced">Reduced (minimal animation)</option>
               </Select>
             </Field>
+            {!isLocked("layout") && (
             <Field label="Homepage layout">
               <Select
                 value={layout.home || "editorial"}
@@ -281,9 +309,12 @@ const Settings = () => {
                 <option value="minimal">Minimal (lookbook)</option>
               </Select>
             </Field>
+            )}
           </Section>
+          )}
 
           {/* Trust stats (homepage band) */}
+          {!isLocked("stats") && (
           <Section title="Trust Stats">
             <p className="text-sm text-gray-500 mb-3">
               Social-proof figures shown in a band under the homepage hero,
@@ -332,8 +363,10 @@ const Settings = () => {
               </Btn>
             )}
           </Section>
+          )}
 
           {/* Payment */}
+          {!isLocked("payment") && (
           <Section title="Payment">
             <p className="text-sm text-gray-500 mb-3">
               Choose which checkout methods customers can use.
@@ -363,8 +396,10 @@ const Settings = () => {
               </Select>
             </Field>
           </Section>
+          )}
 
           {/* SEO */}
+          {!isLocked("seo") && (
           <Section title="SEO">
             <Field label="Meta Title">
               <Input
@@ -386,8 +421,10 @@ const Settings = () => {
               />
             </Field>
           </Section>
+          )}
 
           {/* Features */}
+          {!isLocked("features") && (
           <Section title="Features">
             <p className="text-sm text-gray-500 mb-3">
               Enable or disable engine features for this store.
@@ -409,6 +446,7 @@ const Settings = () => {
               })}
             </div>
           </Section>
+          )}
 
           <div className="flex justify-end mb-10">
             <Btn type="submit" disabled={saving}>

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VCE Panel</title>
+<style>
+  :root {
+    --ink: #1c1917; --muted: #78716c; --bg: #fafaf9; --card: #ffffff;
+    --line: #e7e5e4; --accent: #0f766e; --accent-soft: #f0fdfa; --danger: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: var(--ink); color: #fff; }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: 0.14em; text-transform: uppercase; }
+  header .sub { color: #a8a29e; font-size: 12px; }
+  .wrap { display: grid; grid-template-columns: 270px 1fr; min-height: calc(100vh - 52px); }
+  aside { border-right: 1px solid var(--line); background: var(--card); padding: 14px; }
+  main { padding: 22px 26px; max-width: 980px; }
+  .store-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
+  .store-item:hover { background: var(--bg); }
+  .store-item.active { background: var(--accent-soft); border: 1px solid var(--accent); }
+  .store-item .id { color: var(--muted); font-size: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 3px; }
+  input[type=text], input[type=email], input[type=number], select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; font: inherit; background: #fff;
+  }
+  textarea { font-family: Consolas, monospace; font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 16px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 16px; }
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+  .checks label { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; color: var(--ink); }
+  button { padding: 9px 18px; border: none; border-radius: 7px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+  button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  button.small { padding: 5px 10px; font-size: 12px; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .swatch-row { display: flex; align-items: center; gap: 8px; }
+  .swatch-row input[type=color] { width: 34px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 8px; display: none; max-width: 480px; white-space: pre-wrap; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .pill { display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 9px; font-size: 11px; margin-left: 6px; }
+  .locknote { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #92400e; margin-bottom: 12px; }
+  #login { max-width: 380px; margin: 12vh auto; }
+  .stat-row { display: grid; grid-template-columns: 90px 70px 1fr 34px; gap: 8px; margin-bottom: 6px; align-items: center; }
+  .stat-row button { padding: 6px 0; background: #fff; color: var(--danger); border: 1px solid var(--line); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VCE Panel</h1>
+  <span class="sub">agency control plane — stores, themes, features, locks</span>
+</header>
+
+<div id="login" style="display:none">
+  <div class="card">
+    <h2>Panel key</h2>
+    <p class="muted">Printed in the terminal where the panel started (or your PANEL_KEY).</p>
+    <input type="text" id="keyInput" placeholder="panel key" />
+    <div style="margin-top:10px"><button onclick="saveKey()">Enter</button></div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <aside>
+    <button style="width:100%" onclick="showCreate()">+ New store</button>
+    <div id="storeList" style="margin-top:12px"></div>
+  </aside>
+  <main id="main"><p class="muted">Select a store, or create one.</p></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let KEY = localStorage.getItem("vce_panel_key") || "";
+let stores = [], current = null, S = null; // S = current settings doc
+
+const api = (path, opts = {}) =>
+  fetch("/api" + path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "x-panel-key": KEY, ...(opts.headers || {}) },
+  }).then(async (r) => {
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+
+const toast = (msg, ms = 3500) => {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.style.display = "none"), ms);
+};
+
+function saveKey() {
+  KEY = $("keyInput").value.trim();
+  localStorage.setItem("vce_panel_key", KEY);
+  boot();
+}
+
+async function boot() {
+  try {
+    const d = await api("/stores");
+    stores = d.stores;
+    $("login").style.display = "none";
+    $("app").style.display = "grid";
+    renderList();
+  } catch (e) {
+    $("login").style.display = "block";
+    $("app").style.display = "none";
+    if (KEY) toast("Key rejected: " + e.message);
+  }
+}
+
+function renderList() {
+  $("storeList").innerHTML = stores
+    .map(
+      (s) => `<div class="store-item ${current === s.id ? "active" : ""}" onclick="openStore('${s.id}')">
+        <div><b>${s.name || s.id}</b>${s.industry ? `<span class="pill">${s.industry}</span>` : ""}</div>
+        <div class="id">${s.db || s.id}</div>
+      </div>`
+    )
+    .join("") || '<p class="muted">No stores yet.</p>';
+}
+
+/* ---------- create store ---------- */
+async function showCreate() {
+  current = null; renderList();
+  let industries = [];
+  try { industries = (await api("/industries")).industries; } catch (e) {}
+  $("main").innerHTML = `
+  <div class="card">
+    <h2>Create a new store</h2>
+    <p class="muted">Provisions the database, settings, admin user and starter categories.
+    Env files + deployment are step 2 (docs/DEPLOYMENT.md).</p>
+    <div class="grid2">
+      <div><label>Store name</label><input type="text" id="c_name" placeholder="KickCo" /></div>
+      <div><label>Store id (lowercase, dashes)</label><input type="text" id="c_id" placeholder="kickco" /></div>
+      <div><label>Industry preset</label>
+        <select id="c_industry"><option value="">— none (generic) —</option>
+        ${industries.map((i) => `<option>${i}</option>`).join("")}</select></div>
+      <div><label>Admin email</label><input type="email" id="c_email" placeholder="owner@kickco.com" /></div>
+      <div><label>WhatsApp number (optional)</label><input type="text" id="c_wa" placeholder="9198xxxxxxxx" /></div>
+      <div><label>Database name (optional)</label><input type="text" id="c_db" placeholder="vce-kickco" /></div>
+    </div>
+    <div style="margin-top:14px" class="row">
+      <button id="c_go" onclick="createStore()">Provision store</button>
+      <span class="muted">Takes a few seconds (creates the database).</span>
+    </div>
+  </div>`;
+  $("c_name").addEventListener("input", () => {
+    $("c_id").value = $("c_name").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  });
+}
+
+async function createStore(retry = false) {
+  const btn = $("c_go"); btn.disabled = true; btn.textContent = "Provisioning…";
+  try {
+    const d = await api("/stores", {
+      method: "POST",
+      body: JSON.stringify({
+        id: $("c_id").value.trim(),
+        storeName: $("c_name").value.trim(),
+        industry: $("c_industry").value || undefined,
+        adminEmail: $("c_email").value.trim(),
+        whatsappNumber: $("c_wa").value.trim(),
+        dbName: $("c_db").value.trim() || undefined,
+        retry,
+      }),
+    });
+    stores = (await api("/stores")).stores;
+    renderList();
+    toast(`✅ ${d.success}\nAdmin: ${d.admin.email}\nPassword (save it now!): ${d.admin.password}`, 20000);
+    openStore(d.id);
+  } catch (e) {
+    if (!retry && /already exists/.test(e.message) &&
+        confirm("This store id is already registered (a previous provision may have failed). Re-run provisioning for it?")) {
+      btn.disabled = false;
+      return createStore(true);
+    }
+    toast("❌ " + e.message);
+  }
+  btn.disabled = false; btn.textContent = "Provision store";
+}
+
+/* ---------- store editor ---------- */
+const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsappCheckout"];
+const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
+const LOCKS = ["identity", "theme", "layout", "payment", "features", "seo", "stats", "content"];
+const COLORS = ["cream", "sand", "card", "ink", "muted", "accent", "accent-hover", "hairline"];
+
+async function openStore(id) {
+  current = id; renderList();
+  $("main").innerHTML = '<p class="muted">Loading store…</p>';
+  try {
+    const d = await api(`/stores/${id}/settings`);
+    S = d.settings;
+    renderEditor(id);
+  } catch (e) {
+    $("main").innerHTML = `<div class="card"><h2>Error</h2><p>${e.message}</p></div>`;
+  }
+}
+
+function renderEditor(id) {
+  const meta = stores.find((s) => s.id === id) || {};
+  const theme = S.theme || {}; const colors = theme.colors || {}; const fonts = theme.fonts || {};
+  const feats = S.features || {}; const pay = S.payment || {}; const locks = S.lockedSections || [];
+  const stats = S.stats || [];
+  $("main").innerHTML = `
+  <div class="row" style="justify-content:space-between; margin-bottom:14px">
+    <div><b style="font-size:17px">${S.storeName || meta.name || id}</b>
+      <span class="muted"> · db ${meta.db || ""} · <a href="${meta.clientUrl || "#"}" target="_blank">storefront</a></span></div>
+    <button onclick="save('${id}')">Save all changes</button>
+  </div>
+  <div class="locknote">Locked sections are hidden from the client's admin and write-protected in the store API — only this panel changes them.</div>
+
+  <div class="card"><h2>Agency locks</h2>
+    <div class="checks">${LOCKS.map((k) =>
+      `<label><input type="checkbox" data-lock="${k}" ${locks.includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+    </div>
+  </div>
+
+  <div class="card"><h2>Identity</h2>
+    <div class="grid2">
+      <div><label>Store name</label><input type="text" id="f_storeName" value="${S.storeName || ""}"/></div>
+      <div><label>Variant label</label><input type="text" id="f_variantLabel" value="${S.variantLabel || ""}" placeholder="Shade / Size / Flavor"/></div>
+      <div><label>WhatsApp number</label><input type="text" id="f_whatsappNumber" value="${S.whatsappNumber || ""}"/></div>
+      <div><label>Contact email</label><input type="text" id="f_contactEmail" value="${S.contactEmail || ""}"/></div>
+      <div><label>Hero heading</label><input type="text" id="f_heroHeading" value="${(S.heroHeading || "").replace(/"/g, "&quot;")}"/></div>
+      <div><label>Hero subheading</label><input type="text" id="f_heroSubheading" value="${(S.heroSubheading || "").replace(/"/g, "&quot;")}"/></div>
+    </div>
+  </div>
+
+  <div class="card"><h2>Theme — colors</h2>
+    <div class="grid4">${COLORS.map((k) => `
+      <div><label>${k}</label><div class="swatch-row">
+        <input type="color" data-colorpick="${k}" value="${colors[k] || "#ffffff"}"/>
+        <input type="text" data-color="${k}" value="${colors[k] || ""}" placeholder="default"/>
+      </div></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="card"><h2>Typography, tokens &amp; motion</h2>
+    <div class="grid2">
+      <div><label>Body font stack</label><input type="text" id="f_fontBody" value="${(fonts.body || "").replace(/"/g, "&quot;")}"/></div>
+      <div><label>Display font stack</label><input type="text" id="f_fontDisplay" value="${(fonts.display || "").replace(/"/g, "&quot;")}"/></div>
+      <div><label>Google families (comma-separated css2 specs)</label>
+        <input type="text" id="f_fontGoogle" value="${(fonts.googleFamilies || []).join(", ")}"/></div>
+      <div><label>Motion</label><select id="f_motion">
+        <option value="full" ${theme.motion !== "reduced" ? "selected" : ""}>full</option>
+        <option value="reduced" ${theme.motion === "reduced" ? "selected" : ""}>reduced</option></select></div>
+    </div>
+    <label>Design tokens (JSON — radius/tracking/density, see docs/THEMING.md)</label>
+    <textarea id="f_tokens" rows="4">${JSON.stringify(theme.tokens || {}, null, 1)}</textarea>
+  </div>
+
+  <div class="card"><h2>Layout</h2>
+    <label>Homepage</label>
+    <select id="f_layoutHome">${["editorial", "catalog", "minimal"].map((v) =>
+      `<option ${((S.layout || {}).home || "editorial") === v ? "selected" : ""}>${v}</option>`).join("")}</select>
+  </div>
+
+  <div class="card"><h2>Features</h2>
+    <div class="checks">${FEATURES.map((k) =>
+      `<label><input type="checkbox" data-feat="${k}" ${feats[k] ? "checked" : ""}/> ${k}</label>`).join("")}
+    </div>
+  </div>
+
+  <div class="card"><h2>Payment</h2>
+    <div class="checks">${PROVIDERS.map((k) =>
+      `<label><input type="checkbox" data-prov="${k}" ${(pay.enabledProviders || []).includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+    </div>
+    <label>Default method</label>
+    <select id="f_defaultProvider">${PROVIDERS.map((k) =>
+      `<option ${pay.defaultProvider === k ? "selected" : ""}>${k}</option>`).join("")}</select>
+    <p class="muted">Razorpay also needs RAZORPAY_* keys in that store's server env.</p>
+  </div>
+
+  <div class="card"><h2>Trust stats</h2>
+    <div id="statRows">${stats.map((st, i) => statRow(st, i)).join("")}</div>
+    <button class="secondary small" onclick="addStatRow()">+ Add stat</button>
+  </div>
+
+  <div style="margin: 10px 0 40px"><button onclick="save('${id}')">Save all changes</button></div>`;
+
+  document.querySelectorAll("[data-colorpick]").forEach((p) =>
+    p.addEventListener("input", () => {
+      document.querySelector(`[data-color="${p.dataset.colorpick}"]`).value = p.value;
+    })
+  );
+}
+
+const statRow = (st, i) => `
+  <div class="stat-row" data-stat>
+    <input type="number" value="${st.value ?? 0}" data-sv placeholder="Number"/>
+    <input type="text" value="${st.suffix || ""}" data-ss placeholder="+"/>
+    <input type="text" value="${(st.label || "").replace(/"/g, "&quot;")}" data-sl placeholder="Happy Customers"/>
+    <button onclick="this.parentElement.remove()">✕</button>
+  </div>`;
+
+function addStatRow() {
+  $("statRows").insertAdjacentHTML("beforeend", statRow({ value: 0, suffix: "+", label: "" }));
+}
+
+async function save(id) {
+  let tokens;
+  try {
+    tokens = JSON.parse($("f_tokens").value || "{}");
+  } catch (e) {
+    return toast("❌ Design tokens JSON is invalid");
+  }
+  const colors = {};
+  document.querySelectorAll("[data-color]").forEach((i) => {
+    if (i.value.trim()) colors[i.dataset.color] = i.value.trim();
+  });
+  const features = {};
+  document.querySelectorAll("[data-feat]").forEach((i) => (features[i.dataset.feat] = i.checked));
+  const enabledProviders = [...document.querySelectorAll("[data-prov]")]
+    .filter((i) => i.checked).map((i) => i.dataset.prov);
+  const lockedSections = [...document.querySelectorAll("[data-lock]")]
+    .filter((i) => i.checked).map((i) => i.dataset.lock);
+  const stats = [...document.querySelectorAll("[data-stat]")].map((r) => ({
+    value: Number(r.querySelector("[data-sv]").value) || 0,
+    suffix: r.querySelector("[data-ss]").value,
+    label: r.querySelector("[data-sl]").value,
+  })).filter((s) => s.label);
+
+  const body = {
+    storeName: $("f_storeName").value,
+    variantLabel: $("f_variantLabel").value,
+    whatsappNumber: $("f_whatsappNumber").value.replace(/\D/g, ""),
+    contactEmail: $("f_contactEmail").value,
+    heroHeading: $("f_heroHeading").value,
+    heroSubheading: $("f_heroSubheading").value,
+    theme: {
+      ...(S.theme || {}),
+      colors,
+      tokens,
+      fonts: {
+        body: $("f_fontBody").value,
+        display: $("f_fontDisplay").value,
+        googleFamilies: $("f_fontGoogle").value.split(",").map((x) => x.trim()).filter(Boolean),
+      },
+      motion: $("f_motion").value,
+    },
+    layout: { home: $("f_layoutHome").value },
+    features,
+    payment: { enabledProviders, defaultProvider: $("f_defaultProvider").value },
+    stats,
+    lockedSections,
+  };
+  try {
+    const d = await api(`/stores/${id}/settings`, { method: "PUT", body: JSON.stringify(body) });
+    S = d.settings;
+    toast("✅ Saved — live on the storefront now");
+  } catch (e) {
+    toast("❌ " + e.message);
+  }
+}
+
+if (KEY) boot(); else $("login").style.display = "block";
+</script>
+</body>
+</html>

@@ -122,6 +122,11 @@ const storeSettingsSchema = new mongoose.Schema(
     content: { type: [contentEntrySchema], default: [] },
     // Homepage trust-stats band (hidden while empty).
     stats: { type: [statSchema], default: [] },
+    // Sections managed by the agency via the VCE Panel. A locked section is
+    // hidden in the client admin AND write-rejected by the settings API —
+    // only the panel (direct DB access) can change it. Valid keys: identity,
+    // theme, layout, payment, features, seo, content, stats.
+    lockedSections: { type: [String], default: [] },
   },
   { timestamps: true }
 );

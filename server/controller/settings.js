@@ -57,10 +57,15 @@ class SettingsController {
       }
       let settings = await StoreSettings.findOne({});
       if (!settings) settings = await StoreSettings.create({});
+      // Agency-managed sections (VCE Panel): the store admin cannot write
+      // them. "identity" covers the flat text fields + hero image.
+      const locked = settings.lockedSections || [];
       EDITABLE.forEach((key) => {
+        if (locked.includes("identity")) return;
         if (req.body[key] !== undefined) settings[key] = req.body[key];
       });
       NESTED.forEach((key) => {
+        if (locked.includes(key)) return;
         if (req.body[key] === undefined) return;
         let val = req.body[key];
         if (typeof val === "string") {
@@ -72,12 +77,14 @@ class SettingsController {
         }
         settings[key] = val;
       });
-      if (req.file) {
+      if (req.file && locked.includes("identity")) {
+        await destroyAssets(req.file.filename); // reject managed hero upload
+      } else if (req.file) {
         // Replace hero image (delete the old asset).
         const oldId = settings.heroImage && settings.heroImage.publicId;
         settings.heroImage = toImage(req.file);
         if (oldId) await destroyAssets(oldId);
-      } else if (req.body.removeHeroImage === "true") {
+      } else if (req.body.removeHeroImage === "true" && !locked.includes("identity")) {
         // Clear hero image entirely.
         const oldId = settings.heroImage && settings.heroImage.publicId;
         settings.heroImage = null;
