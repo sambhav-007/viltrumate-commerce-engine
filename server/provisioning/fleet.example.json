@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Acme Glow",
+    "manifest": "../stores/acme-glow.json"
+  },
+  {
+    "name": "KickCo",
+    "manifest": "../stores/kickco.json"
+  }
+]

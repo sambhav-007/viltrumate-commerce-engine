@@ -13,3 +13,8 @@ client/.env
 
 # builds
 client/build
+
+# Fleet operations (real registry may point at private client manifests)
+server/provisioning/fleet.json
+backups/
+stores/
