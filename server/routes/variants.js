@@ -12,6 +12,7 @@ const admin = [loginCheck, adminCheck];
 router.get("/by-product/:productId", controller.getByProduct);
 router.post("/bulk", admin, controller.bulkCreate);
 router.patch("/bulk", admin, controller.bulkUpdate);
+router.patch("/reorder", admin, controller.reorder);
 router.post("/", admin, upload.array("images"), controller.create);
 router.put("/:id", admin, upload.array("images"), controller.update);
 router.delete("/:id/image", admin, controller.removeImage);

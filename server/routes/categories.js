@@ -9,6 +9,7 @@ const admin = [loginCheck, adminCheck];
 
 router.get("/", controller.getAll);
 router.get("/:slug", controller.getBySlug);
+router.patch("/reorder", admin, controller.reorder);
 router.post("/", admin, upload.single("image"), controller.create);
 router.put("/:id", admin, upload.single("image"), controller.update);
 router.delete("/:id", admin, controller.remove);

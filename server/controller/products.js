@@ -36,7 +36,7 @@ class ProductController {
         .populate("category", "name slug")
         .lean();
       if (!product) return res.status(404).json({ error: "Product not found" });
-      const shades = await Shade.find({ product: product._id }).sort({ _id: 1 });
+      const shades = await Shade.find({ product: product._id }).sort({ order: 1, _id: 1 });
       await attachShadeStats([product]);
       return res.json({ product, shades });
     } catch (err) {

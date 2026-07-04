@@ -9,7 +9,9 @@ import {
   updateVariant,
   deleteVariant,
   deleteVariantImage,
+  reorderVariants,
 } from "../../../api/admin";
+import useRowDnd, { moveItem } from "../useRowDnd";
 import { useSettings, useFeature } from "../../../context/SettingsContext";
 import { VARIANT_LABEL } from "../../../config/store.config";
 import {
@@ -60,6 +62,18 @@ const VariantManager = () => {
             return m;
           }, {})
     );
+
+  // ---- drag-to-reorder (optimistic; reload on failure) ----
+  const onReorder = async (from, to) => {
+    const next = moveItem(rows, from, to);
+    setRows(next);
+    const res = await reorderVariants(next.map((r) => r._id));
+    if (res.error) {
+      toast(res.error, "error");
+      load();
+    }
+  };
+  const dnd = useRowDnd(onReorder);
 
   // ---- inline row editing ----
   const setRow = (rid, patch) =>
@@ -188,7 +202,13 @@ const VariantManager = () => {
                   </tr>
                 )}
                 {rows.map((r, i) => (
-                  <tr key={r._id} className="border-t align-top">
+                  <tr
+                    key={r._id}
+                    className={`border-t align-top ${
+                      dnd.overIndex === i ? "row-drop-target" : ""
+                    }`}
+                    {...dnd.rowProps(i)}
+                  >
                     <td className="p-2" data-label="Select">
                       <input
                         type="checkbox"
@@ -198,8 +218,18 @@ const VariantManager = () => {
                         }
                       />
                     </td>
-                    <td className="p-2 text-gray-400 admin-hide-sm" data-label="#">
-                      {i + 1}
+                    <td
+                      className="p-2 text-gray-400 admin-hide-sm whitespace-nowrap"
+                      data-label="#"
+                    >
+                      <span
+                        className="drag-handle"
+                        title="Drag to reorder"
+                        {...dnd.handleProps(i)}
+                      >
+                        ⠿
+                      </span>
+                      <span className="ml-1">{i + 1}</span>
                     </td>
                     <td className="p-2" data-label="Images">
                       <div className="flex items-center gap-1 flex-wrap max-w-xs">

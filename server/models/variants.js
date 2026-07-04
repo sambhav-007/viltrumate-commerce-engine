@@ -19,6 +19,8 @@ const variantSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     images: { type: [imageSchema], default: [] },
     status: { type: String, enum: ["Active", "Disabled"], default: "Active" },
+    // Admin drag-to-reorder display position (storefront + admin sort on it).
+    order: { type: Number, default: 0 },
     // Inventory (feature-flagged): null = untracked (unlimited). Decremented
     // when an order is confirmed, restored when a confirmed order is
     // cancelled (see config/inventory.js). May go negative on oversell —

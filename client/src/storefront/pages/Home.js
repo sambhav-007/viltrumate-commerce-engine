@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import Layout from "../Layout";
 import ProductCard from "../ProductCard";
 import CategoryCard from "../CategoryCard";
+import TrustStats from "../TrustStats";
+import BannerCarousel from "../BannerCarousel";
 import Reveal from "../Reveal";
 import { useSettings } from "../../context/SettingsContext";
 import { getCategories, getProducts, getBanners } from "../../api/shop";
@@ -11,24 +13,39 @@ import { useContent } from "../../config/content";
 
 /* ---------- Sections (composed per layout variant below) ---------- */
 
-const Hero = ({ t, s, heroImg, heroRatio }) => {
+/* Hero, three ways (mirrors aura-rare):
+   1) Active banners → auto-rotating carousel, image shown whole (no site text).
+   2) A single uploaded hero image → clean clickable band, whole image (contain),
+      no overlaid title/CTA — the image is a self-contained design.
+   3) No image → full-viewport text hero with title + CTA.
+   Cases 1-2 render a visually-hidden H1 for crawlers. */
+const Hero = ({ t, s, banners, heroImg }) => {
   const heroHeading = s.heroHeading || t("home.hero.heading");
   const heroSub = s.heroSubheading || t("home.hero.sub");
+  const storeName = s.storeName || "";
+
+  if (banners.length > 0 || heroImg) {
+    return (
+      <>
+        <h1 className="sr-only">{heroHeading}</h1>
+        {banners.length > 0 ? (
+          <BannerCarousel banners={banners} />
+        ) : (
+          <Link
+            to="/category"
+            className="hero-image-hero"
+            aria-label={storeName ? `Shop ${storeName}` : "Shop"}
+            style={{ backgroundImage: `url(${heroImg})` }}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <section
-      className={`relative flex items-center ${heroImg ? "" : "hero-fallback"}`}
-      style={{
-        // No image: full-viewport fallback. With image: box matches the
-        // image's aspect ratio (clamped) so the whole image shows, cover-filled.
-        minHeight: heroImg ? "55vh" : "100vh",
-        maxHeight: heroImg ? "100vh" : undefined,
-        aspectRatio: heroImg && heroRatio ? String(heroRatio) : undefined,
-        width: "100%",
-        backgroundColor: heroImg ? "var(--ink)" : undefined,
-        background: heroImg
-          ? `linear-gradient(90deg, rgba(31,31,31,.45) 0%, rgba(31,31,31,.15) 55%, rgba(31,31,31,0) 100%), url(${heroImg}) center/cover no-repeat var(--ink)`
-          : undefined,
-      }}
+      className="relative flex items-center hero-fallback"
+      style={{ minHeight: "100vh", width: "100%" }}
     >
       <div className="aura-container w-full">
         <motion.div
@@ -36,22 +53,19 @@ const Hero = ({ t, s, heroImg, heroRatio }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-2xl"
-          style={{ color: heroImg ? "#fff" : "var(--ink)" }}
+          style={{ color: "var(--ink)" }}
         >
-          <div
-            className="eyebrow mb-5"
-            style={{ color: heroImg ? "#e8d6c0" : "var(--accent)" }}
-          >
+          <div className="eyebrow mb-5" style={{ color: "var(--accent)" }}>
             {t("home.hero.eyebrow")}
           </div>
           <h1 className="display-hero mb-6">{heroHeading}</h1>
           <p
             className="text-lg md:text-xl mb-10 max-w-lg"
-            style={{ color: heroImg ? "rgba(255,255,255,.9)" : "var(--muted)" }}
+            style={{ color: "var(--muted)" }}
           >
             {heroSub}
           </p>
-          <Link to="/category" className={heroImg ? "btn-accent" : "btn-ink"}>
+          <Link to="/category" className="btn-ink">
             {t("home.hero.cta")}
           </Link>
         </motion.div>
@@ -62,7 +76,7 @@ const Hero = ({ t, s, heroImg, heroRatio }) => {
           bottom: 32,
           left: "50%",
           transform: "translateX(-50%)",
-          color: heroImg ? "rgba(255,255,255,.8)" : "var(--muted)",
+          color: "var(--muted)",
         }}
       >
         {t("home.hero.scroll")}
@@ -215,6 +229,7 @@ const Social = ({ t, s }) =>
    minimal   — lookbook: hero, collections and story only              */
 const SECTIONS = {
   hero: Hero,
+  stats: TrustStats, // renders null until StoreSettings.stats has entries
   categories: Categories,
   bestsellers: BestSellers,
   story: Story,
@@ -223,9 +238,9 @@ const SECTIONS = {
   social: Social,
 };
 export const LAYOUTS = {
-  editorial: ["hero", "categories", "bestsellers", "story", "more", "testimonial", "social"],
-  catalog: ["hero", "bestsellers", "categories", "more", "testimonial", "social"],
-  minimal: ["hero", "categories", "story", "social"],
+  editorial: ["hero", "stats", "categories", "bestsellers", "story", "more", "testimonial", "social"],
+  catalog: ["hero", "stats", "bestsellers", "categories", "more", "testimonial", "social"],
+  minimal: ["hero", "stats", "categories", "story", "social"],
 };
 
 const Home = () => {
@@ -233,15 +248,14 @@ const Home = () => {
   const t = useContent();
   const [cats, setCats] = useState([]);
   const [products, setProducts] = useState([]);
-  const [banner, setBanner] = useState(null);
-  const [heroRatio, setHeroRatio] = useState(null);
+  const [banners, setBanners] = useState([]);
 
   useEffect(() => {
     getCategories().then((r) =>
       setCats((r.categories || []).filter((c) => c.status === "Active"))
     );
     getProducts().then((r) => setProducts(r.products || []));
-    getBanners().then((r) => setBanner((r.banners || [])[0] || null));
+    getBanners().then((r) => setBanners(r.banners || []));
   }, []);
 
   const counts = {};
@@ -253,28 +267,16 @@ const Home = () => {
   const bestSellers = (featured.length ? featured : products).slice(0, 4);
   const moreProducts = products.slice(0, 8);
 
-  const heroImg =
-    (s.heroImage && s.heroImage.url) || (banner && banner.image && banner.image.url);
-
-  // Read the hero image's natural aspect ratio so the section height adapts
-  // to it (box matches the image → full image shown, no crop, no letterbox).
-  useEffect(() => {
-    if (!heroImg) {
-      setHeroRatio(null);
-      return;
-    }
-    const im = new Image();
-    im.onload = () =>
-      setHeroRatio(im.naturalHeight ? im.naturalWidth / im.naturalHeight : null);
-    im.src = heroImg;
-  }, [heroImg]);
+  // The Story section image is tied only to the store's own hero image
+  // setting — never to banners (they're campaign material).
+  const heroImg = s.heroImage && s.heroImage.url;
 
   const variant = (s.layout && s.layout.home) || "editorial";
   const order = LAYOUTS[variant] || LAYOUTS.editorial;
-  const ctx = { t, s, cats, counts, bestSellers, moreProducts, heroImg, heroRatio };
+  const ctx = { t, s, cats, counts, bestSellers, moreProducts, banners, heroImg };
 
   return (
-    <Layout bare>
+    <Layout>
       {order.map((key) => {
         const Section = SECTIONS[key];
         return <Section key={key} {...ctx} />;

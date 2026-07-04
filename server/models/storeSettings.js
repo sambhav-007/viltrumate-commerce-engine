@@ -82,6 +82,17 @@ const contentEntrySchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Homepage trust-stats band (admin-editable). Empty array = band hidden.
+// value counts up from 0 on scroll; suffix renders in the accent color.
+const statSchema = new mongoose.Schema(
+  {
+    value: { type: Number, default: 0 },
+    suffix: { type: String, default: "" }, // e.g. "+", "%"
+    label: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 // Singleton document holding all global, admin-editable store configuration:
 // identity, theme, payment, SEO and feature flags. Nothing here is hardcoded.
 const storeSettingsSchema = new mongoose.Schema(
@@ -109,6 +120,8 @@ const storeSettingsSchema = new mongoose.Schema(
     // Per-store storefront copy overrides ([{k,v}] pairs). Empty falls back to
     // the generic defaults in client/src/config/content.js.
     content: { type: [contentEntrySchema], default: [] },
+    // Homepage trust-stats band (hidden while empty).
+    stats: { type: [statSchema], default: [] },
   },
   { timestamps: true }
 );

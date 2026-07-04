@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { Link, useHistory } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useSettings, useFeature } from "../context/SettingsContext";
-import { getCategories, search as searchApi } from "../api/shop";
+import { getCategories, getProducts, search as searchApi } from "../api/shop";
 import Logo from "./Logo";
-import { cld } from "./format";
+import { cld, money } from "./format";
 import { STORE_NAME } from "../config/store.config";
 import { useContent } from "../config/content";
 
@@ -16,11 +16,15 @@ const Navbar = () => {
   const wishlistOn = useFeature("wishlist");
   const t = useContent();
   const [cats, setCats] = useState([]);
+  const [products, setProducts] = useState([]);
   const [q, setQ] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [sugg, setSugg] = useState(null);
+  // Which desktop nav item is being previewed (null | "shop" | category id).
+  const [hovered, setHovered] = useState(null);
+  const closeTimer = useRef();
 
   // Debounced live suggestions while typing in the expanded search.
   useEffect(() => {
@@ -44,10 +48,37 @@ const Navbar = () => {
     getCategories().then((res) =>
       setCats((res.categories || []).filter((c) => c.status === "Active"))
     );
+    // Catalogue snapshot powering the hover previews (counts + thumbnails).
+    getProducts().then((res) => setProducts(res.products || []));
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Hover-intent: open immediately, close after a short delay so the cursor
+  // can travel from the link down into the panel without it flickering shut.
+  const openPreview = (key) => {
+    clearTimeout(closeTimer.current);
+    setHovered(key);
+  };
+  const scheduleClose = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setHovered(null), 160);
+  };
+  const closePreview = () => {
+    clearTimeout(closeTimer.current);
+    setHovered(null);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  // Group products by category for the previews.
+  const productsByCat = {};
+  products.forEach((p) => {
+    const id = p.category && (p.category._id || p.category);
+    if (id) (productsByCat[id] = productsByCat[id] || []).push(p);
+  });
+  const hoveredCat =
+    hovered && hovered !== "shop" ? cats.find((c) => c._id === hovered) : null;
 
   const go = (e) => {
     e.preventDefault();
@@ -59,7 +90,11 @@ const Navbar = () => {
   };
 
   return (
-    <header className={`aura-nav fixed top-0 w-full z-30 ${scrolled ? "scrolled" : ""}`}>
+    <header
+      className={`aura-nav fixed top-0 w-full z-30 ${scrolled ? "scrolled" : ""} ${
+        showSearch || hovered ? "solid" : ""
+      }`}
+    >
       <div
         className="aura-container flex items-center justify-between"
         style={{ height: scrolled ? 80 : 104, transition: "height .4s ease" }}
@@ -73,10 +108,28 @@ const Navbar = () => {
           >
             ☰
           </button>
-          <nav className="hidden md:flex items-center space-x-9">
-            <Link to="/category" className="nav-link">{t("nav.shop")}</Link>
+          <nav
+            className="hidden md:flex items-center space-x-9"
+            onMouseLeave={scheduleClose}
+          >
+            <Link
+              to="/category"
+              className="nav-link"
+              onMouseEnter={() => openPreview("shop")}
+              onFocus={() => openPreview("shop")}
+              onClick={closePreview}
+            >
+              {t("nav.shop")}
+            </Link>
             {cats.slice(0, 4).map((c) => (
-              <Link key={c._id} to={`/category/${c.slug}`} className="nav-link">
+              <Link
+                key={c._id}
+                to={`/category/${c.slug}`}
+                className="nav-link"
+                onMouseEnter={() => openPreview(c._id)}
+                onFocus={() => openPreview(c._id)}
+                onClick={closePreview}
+              >
                 {c.name}
               </Link>
             ))}
@@ -136,6 +189,115 @@ const Navbar = () => {
           </button>
         </div>
       </div>
+
+      {/* Desktop hover preview flyout */}
+      {hovered && (
+        <div
+          className="nav-flyout hidden md:block"
+          onMouseEnter={() => openPreview(hovered)}
+          onMouseLeave={scheduleClose}
+        >
+          <div className="aura-container py-8">
+            {hovered === "shop" ? (
+              <>
+                <div className="flex items-end justify-between mb-5">
+                  <div className="eyebrow">{t("home.categories.title")}</div>
+                  <Link to="/category" className="nav-link" onClick={closePreview}>
+                    {t("nav.shopAll")} →
+                  </Link>
+                </div>
+                {cats.length === 0 ? (
+                  <div className="text-muted text-sm">Loading…</div>
+                ) : (
+                  <div className="nav-preview-grid">
+                    {cats.slice(0, 8).map((c) => (
+                      <Link
+                        key={c._id}
+                        to={`/category/${c.slug}`}
+                        className="nav-preview-card block group"
+                        onClick={closePreview}
+                      >
+                        <div
+                          className="nav-preview-thumb"
+                          style={{
+                            aspectRatio: "4 / 3",
+                            backgroundImage:
+                              c.image && c.image.url
+                                ? `url(${cld(c.image.url, 300)})`
+                                : undefined,
+                          }}
+                        />
+                        <div className="mt-2 text-sm font-medium text-ink group-hover:text-accent transition-colors">
+                          {c.name}
+                        </div>
+                        <div className="text-xs text-muted">
+                          {(productsByCat[c._id] || []).length} item
+                          {(productsByCat[c._id] || []).length === 1 ? "" : "s"}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : hoveredCat ? (
+              <>
+                <div className="flex items-end justify-between mb-5">
+                  <div>
+                    <div className="eyebrow">{hoveredCat.name}</div>
+                    {hoveredCat.description && (
+                      <p className="text-sm text-muted mt-1 max-w-md">
+                        {hoveredCat.description}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    to={`/category/${hoveredCat.slug}`}
+                    className="nav-link"
+                    onClick={closePreview}
+                  >
+                    View all →
+                  </Link>
+                </div>
+                {(productsByCat[hoveredCat._id] || []).length === 0 ? (
+                  <div className="text-muted text-sm">
+                    Explore the {hoveredCat.name} collection.
+                  </div>
+                ) : (
+                  <div className="nav-preview-grid">
+                    {(productsByCat[hoveredCat._id] || []).slice(0, 5).map((p) => (
+                      <Link
+                        key={p._id}
+                        to={`/product/${p.slug}`}
+                        className="nav-preview-card block group"
+                        onClick={closePreview}
+                      >
+                        <div
+                          className="nav-preview-thumb"
+                          style={{
+                            aspectRatio: "3 / 4",
+                            backgroundImage:
+                              p.coverImage && p.coverImage.url
+                                ? `url(${cld(p.coverImage.url, 300)})`
+                                : undefined,
+                          }}
+                        />
+                        <div className="mt-2 text-sm font-medium text-ink group-hover:text-accent transition-colors">
+                          {p.name}
+                        </div>
+                        {p.minPrice != null && (
+                          <div className="text-xs text-muted">
+                            From {money(p.minPrice)}
+                          </div>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {showSearch && (
         <div className="aura-container pb-5 relative">

@@ -39,6 +39,8 @@ async function applyStoreSettings(manifest) {
     logoUrl: b.logoUrl || "",
   };
   doc.layout = { home: (b.layout && b.layout.home) || "editorial" };
+  // Trust-stats band ([{value,suffix,label}]) — optional, band hidden if empty.
+  if (Array.isArray(manifest.store.stats)) doc.stats = manifest.store.stats;
   doc.seo = {
     metaTitle: (b.seo && b.seo.metaTitle) || "",
     metaDescription: (b.seo && b.seo.metaDescription) || "",

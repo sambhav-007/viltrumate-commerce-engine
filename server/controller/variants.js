@@ -21,6 +21,7 @@ class VariantController {
   async getByProduct(req, res) {
     try {
       const variants = await Variant.find({ product: req.params.productId }).sort({
+        order: 1,
         _id: 1,
       });
       // `shades` retained as an alias key for wire back-compat.
@@ -78,6 +79,8 @@ class VariantController {
       if (badPrice(price) || badPrice(mrp) || list.some((s) => s && (badPrice(s.price) || badPrice(s.mrp)))) {
         return res.status(400).json({ error: "Price/MRP must be a non-negative number" });
       }
+      // New variants append after any existing ones (preserve manual ordering).
+      const start = await Variant.countDocuments({ product });
       const seen = new Set();
       const docs = [];
       for (const s of list) {
@@ -92,6 +95,7 @@ class VariantController {
           price: s.price !== undefined ? s.price : price || 0,
           mrp: s.mrp !== undefined ? s.mrp : mrp,
           status: status || "Active",
+          order: start + docs.length,
           images: [],
         });
       }
@@ -121,6 +125,24 @@ class VariantController {
       return res.json({ success: "Variants updated", modified: result.nModified });
     } catch (err) {
       return res.status(500).json({ error: "Failed to bulk update variants" });
+    }
+  }
+
+  // PATCH /api/variants/reorder (admin) -> persist drag order.
+  // body: { ids:[variantId,...] } in the desired display order
+  async reorder(req, res) {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || !ids.length) {
+        return res.status(400).json({ error: "ids list is required" });
+      }
+      const ops = ids.map((id, i) => ({
+        updateOne: { filter: { _id: id }, update: { $set: { order: i } } },
+      }));
+      await Variant.bulkWrite(ops);
+      return res.json({ success: "Order updated" });
+    } catch (err) {
+      return res.status(500).json({ error: "Failed to reorder variants" });
     }
   }
 

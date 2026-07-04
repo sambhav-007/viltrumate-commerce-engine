@@ -5,7 +5,9 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  reorderCategories,
 } from "../../../api/admin";
+import useRowDnd, { moveItem } from "../useRowDnd";
 import {
   Spinner,
   PageHeader,
@@ -19,7 +21,7 @@ import {
   imgUrl,
 } from "../ui";
 
-const empty = { name: "", description: "", status: "Active", order: 0 };
+const empty = { name: "", description: "", status: "Active" };
 
 const Categories = () => {
   const [list, setList] = useState(null);
@@ -48,11 +50,22 @@ const Categories = () => {
       name: c.name,
       description: c.description || "",
       status: c.status,
-      order: c.order || 0,
     });
     setFile(null);
     setOpen(true);
   };
+
+  // ---- drag-to-reorder (optimistic; reload on failure) ----
+  const onReorder = async (from, to) => {
+    const next = moveItem(list, from, to);
+    setList(next);
+    const res = await reorderCategories(next.map((c) => c._id));
+    if (res.error) {
+      toast(res.error, "error");
+      load();
+    }
+  };
+  const dnd = useRowDnd(onReorder);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -101,10 +114,10 @@ const Categories = () => {
             <table className="admin-table w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
+                  <th className="p-3">#</th>
                   <th className="p-3">Image</th>
                   <th className="p-3">Name</th>
                   <th className="p-3">Status</th>
-                  <th className="p-3">Order</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -116,8 +129,24 @@ const Categories = () => {
                     </td>
                   </tr>
                 )}
-                {list.map((c) => (
-                  <tr key={c._id} className="border-t">
+                {list.map((c, i) => (
+                  <tr
+                    key={c._id}
+                    className={`border-t ${
+                      dnd.overIndex === i ? "row-drop-target" : ""
+                    }`}
+                    {...dnd.rowProps(i)}
+                  >
+                    <td className="p-3 whitespace-nowrap" data-label="#">
+                      <span
+                        className="drag-handle"
+                        title="Drag to reorder"
+                        {...dnd.handleProps(i)}
+                      >
+                        ⠿
+                      </span>
+                      <span className="ml-1 text-gray-400">{i + 1}</span>
+                    </td>
                     <td className="p-3" data-label="Image">
                       {imgUrl(c.image) ? (
                         <img
@@ -143,7 +172,6 @@ const Categories = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="p-3" data-label="Order">{c.order}</td>
                     <td
                       className="p-3 text-right admin-actions"
                       data-label="Actions"
@@ -187,28 +215,17 @@ const Categories = () => {
               }
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Status">
-              <Select
-                value={fields.status}
-                onChange={(e) =>
-                  setFields({ ...fields, status: e.target.value })
-                }
-              >
-                <option>Active</option>
-                <option>Disabled</option>
-              </Select>
-            </Field>
-            <Field label="Order">
-              <Input
-                type="number"
-                value={fields.order}
-                onChange={(e) =>
-                  setFields({ ...fields, order: e.target.value })
-                }
-              />
-            </Field>
-          </div>
+          <Field label="Status">
+            <Select
+              value={fields.status}
+              onChange={(e) =>
+                setFields({ ...fields, status: e.target.value })
+              }
+            >
+              <option>Active</option>
+              <option>Disabled</option>
+            </Select>
+          </Field>
           <Field label={`Image ${editing ? "(leave blank to keep)" : ""}`}>
             {editing && imgUrl(editing.image) && (
               <div className="mb-2">

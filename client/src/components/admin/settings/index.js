@@ -83,6 +83,18 @@ const Settings = () => {
   const setMotion = (v) => setS({ ...s, theme: { ...theme, motion: v } });
   const layout = (s && s.layout) || {};
   const setLayout = (k, v) => setS({ ...s, layout: { ...layout, [k]: v } });
+
+  // Trust-stats band (max 4; empty list hides the band on the homepage).
+  const stats = (s && s.stats) || [];
+  const setStat = (i, k, v) =>
+    setS({
+      ...s,
+      stats: stats.map((st, j) => (j === i ? { ...st, [k]: v } : st)),
+    });
+  const addStat = () =>
+    setS({ ...s, stats: [...stats, { value: 0, suffix: "+", label: "" }] });
+  const removeStat = (i) =>
+    setS({ ...s, stats: stats.filter((_, j) => j !== i) });
   const setSeo = (k, v) => setS({ ...s, seo: { ...seo, [k]: v } });
   const setFeature = (k, v) =>
     setS({ ...s, features: { ...features, [k]: v } });
@@ -113,6 +125,7 @@ const Settings = () => {
       // Nested config travels as JSON (multipart form) and is parsed server-side.
       theme: JSON.stringify(s.theme || {}),
       layout: JSON.stringify(s.layout || {}),
+      stats: JSON.stringify(s.stats || []),
       payment: JSON.stringify(s.payment || {}),
       seo: JSON.stringify(s.seo || {}),
       features: JSON.stringify(s.features || {}),
@@ -268,6 +281,56 @@ const Settings = () => {
                 <option value="minimal">Minimal (lookbook)</option>
               </Select>
             </Field>
+          </Section>
+
+          {/* Trust stats (homepage band) */}
+          <Section title="Trust Stats">
+            <p className="text-sm text-gray-500 mb-3">
+              Social-proof figures shown in a band under the homepage hero,
+              counting up on scroll (e.g. 10,000+ Happy Customers). Leave
+              empty to hide the band.
+            </p>
+            {stats.map((st, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end mb-2">
+                <div className="col-span-3">
+                  <Field label={i === 0 ? "Number" : ""}>
+                    <Input
+                      type="number"
+                      value={st.value}
+                      onChange={(e) => setStat(i, "value", e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="col-span-2">
+                  <Field label={i === 0 ? "Suffix" : ""}>
+                    <Input
+                      value={st.suffix || ""}
+                      placeholder="+ or %"
+                      onChange={(e) => setStat(i, "suffix", e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="col-span-5">
+                  <Field label={i === 0 ? "Label" : ""}>
+                    <Input
+                      value={st.label || ""}
+                      placeholder="Happy Customers"
+                      onChange={(e) => setStat(i, "label", e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="col-span-2 mb-4">
+                  <Btn type="button" variant="danger" onClick={() => removeStat(i)}>
+                    Remove
+                  </Btn>
+                </div>
+              </div>
+            ))}
+            {stats.length < 4 && (
+              <Btn type="button" variant="light" onClick={addStat}>
+                + Add stat
+              </Btn>
+            )}
           </Section>
 
           {/* Payment */}

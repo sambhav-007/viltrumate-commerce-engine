@@ -7,6 +7,9 @@ import { STORE_NAME, VARIANT_LABEL } from "./store.config";
 // hook. Placeholders {storeName} {variantLabel} {variantLabelPlural} {year}
 // (plus any call-site vars, e.g. {count}) are interpolated at read time.
 export const CONTENT_DEFAULTS = {
+  // Intro curtain (preloader). Sub-line empty => hidden.
+  "home.preloader.tag": "{storeName}",
+  "home.preloader.sub": "",
   // Home — hero
   "home.hero.eyebrow": "{storeName}",
   "home.hero.heading": "Welcome to {storeName}",

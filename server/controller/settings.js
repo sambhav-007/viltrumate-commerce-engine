@@ -18,7 +18,7 @@ const EDITABLE = [
 ];
 
 // Nested config sent (via multipart) as JSON strings — parse before assigning.
-const NESTED = ["theme", "layout", "payment", "seo", "features", "content"];
+const NESTED = ["theme", "layout", "payment", "seo", "features", "content", "stats"];
 
 // Push the store's feature flags into the runtime guard (requireFeature).
 const syncFeatures = (settings) => {

@@ -140,11 +140,13 @@ body,
 /* ---------- Nav ---------- */
 .aura-nav {
   transition: background var(--dur-slow) ease, box-shadow var(--dur-slow) ease, height var(--dur-slow) ease;
-  background: rgba(var(--cream-rgb), 0.7);
-  backdrop-filter: blur(12px);
+  /* Solid bar — the hero sits below it, not behind it. */
+  background: var(--cream);
+  border-bottom: 1px solid var(--hairline);
 }
-.aura-nav.scrolled {
-  background: rgba(var(--cream-rgb), 0.95);
+.aura-nav.scrolled,
+.aura-nav.solid {
+  background: var(--cream);
   box-shadow: 0 1px 0 var(--hairline), 0 8px 30px -24px rgba(var(--ink-rgb), 0.4);
 }
 .nav-link {
@@ -401,3 +403,252 @@ textarea:focus-visible,
   .md\:gap-12 { gap: 3rem; }
   .md\:gap-20 { gap: 5rem; }
 }
+
+/* ---------- Trust stats band (admin-editable, floats below the hero) ---------- */
+.trust-band {
+  position: relative;
+  z-index: 2;
+  margin-top: 2rem;
+  padding: 0 1.5rem;
+}
+.trust-card {
+  max-width: 1040px;
+  margin: 0 auto;
+  background: var(--sand);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  box-shadow: 0 24px 55px -34px rgba(var(--ink-rgb), 0.35);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 2.25rem 1.5rem;
+}
+.trust-stat {
+  text-align: center;
+  padding: 0.5rem 1rem;
+}
+.trust-stat + .trust-stat {
+  border-left: 1px solid var(--hairline);
+}
+.trust-num {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: clamp(2.1rem, 5.2vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.trust-suffix {
+  color: var(--accent);
+  margin-left: 2px;
+}
+.trust-label {
+  margin-top: 0.65rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .trust-band { margin-top: 1.25rem; }
+  .trust-card { padding: 1.5rem 0.4rem; border-radius: 4px; }
+  .trust-stat { padding: 0.4rem 0.35rem; }
+  .trust-label { font-size: 0.58rem; letter-spacing: 0.12em; }
+}
+
+/* ---------- Intro preloader (curtain lift) ---------- */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+.preloader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  text-align: center;
+}
+.preloader-logo {
+  position: relative;
+  overflow: hidden;
+}
+.preloader-logo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 65%
+  );
+  transform: translateX(-130%);
+  animation: preloaderShimmer 1.5s ease-in-out 0.55s 1 forwards;
+}
+@keyframes preloaderShimmer {
+  to { transform: translateX(130%); }
+}
+.preloader-rule {
+  height: 2px;
+  background: var(--accent);
+}
+.preloader-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+.preloader-tag-main {
+  font-size: 0.72rem;
+  letter-spacing: var(--track-eyebrow);
+  text-transform: uppercase;
+  color: var(--accent-hover);
+  font-weight: 500;
+}
+.preloader-tag-sub {
+  font-size: 0.62rem;
+  letter-spacing: var(--track-btn);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .preloader-logo::after { display: none; }
+}
+
+/* ---------- Drag-to-reorder handle + drop target ---------- */
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #9ca3af;
+  cursor: grab;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.drag-handle:hover {
+  color: #4b5563;
+  background: #f3f4f6;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.admin-table tr.row-drop-target {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+/* ---------- Homepage single hero image (settings-driven) ----------
+   A self-contained designed banner: shown whole, clickable, no overlay. */
+.hero-image-hero {
+  display: block;
+  width: 100%;
+  /* ~3/4 of the image's natural full-width height; the whole 16:9 design is
+     shown (contain) within a shorter band, cream filling the sides. */
+  height: clamp(220px, 42vw, 600px);
+  background-color: var(--cream);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* ---------- Homepage banner carousel (hero) ---------- */
+.banner-carousel {
+  position: relative;
+  width: 100%;
+  /* Match the single hero image band; cream fills the letterbox. */
+  height: clamp(220px, 42vw, 600px);
+  background: var(--cream);
+  overflow: hidden;
+}
+.banner-cell {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.9s ease;
+}
+.banner-fill,
+.banner-bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.banner-bg {
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--cream);
+  display: flex;
+  align-items: flex-end;
+}
+.banner-scrim {
+  width: 100%;
+  padding-top: 6rem;
+  background: linear-gradient(
+    to top,
+    rgba(var(--ink-rgb), 0.6) 0%,
+    rgba(var(--ink-rgb), 0.15) 45%,
+    transparent 75%
+  );
+}
+.banner-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.banner-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.banner-dot.active {
+  width: 24px;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* ---------- Nav hover flyout (desktop mega-preview) ---------- */
+.nav-flyout {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(var(--cream-rgb), 0.98);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--hairline);
+  box-shadow: 0 24px 40px -28px rgba(var(--ink-rgb), 0.45);
+  animation: navFlyIn 0.22s var(--ease-luxe);
+}
+@keyframes navFlyIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.nav-preview-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.nav-preview-thumb {
+  background: var(--sand) center/cover no-repeat;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  transition: transform 0.5s var(--ease-luxe);
+}
+.nav-preview-card:hover .nav-preview-thumb { transform: scale(1.05); }

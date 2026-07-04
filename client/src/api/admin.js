@@ -117,3 +117,7 @@ export const deleteCoupon = (id) => del(`/coupons/${id}`, auth());
 
 /* ---- Analytics ---- */
 export const getAnalytics = (days = 30) => get(`/stats/analytics?days=${days}`, auth());
+
+/* ---- Drag-to-reorder (persisted display order) ---- */
+export const reorderCategories = (ids) => patch("/categories/reorder", { ids }, auth());
+export const reorderVariants = (ids) => patch("/variants/reorder", { ids }, auth());
