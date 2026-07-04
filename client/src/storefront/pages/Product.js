@@ -10,6 +10,7 @@ import { getProduct, getProducts } from "../../api/shop";
 import { money, cld } from "../format";
 import { VARIANT_LABEL } from "../../config/store.config";
 import Reviews from "../Reviews";
+import usePageSeo from "../usePageSeo";
 
 const Product = () => {
   const { slug } = useParams();
@@ -56,6 +57,47 @@ const Product = () => {
   }, [sel, product]);
 
   useEffect(() => setActiveImg(0), [sel]);
+
+  // Per-product SEO + Product/Offer JSON-LD (hook must run before the early
+  // returns below). Currency: Razorpay/WhatsApp flows are INR-first.
+  const loaded = product && !product.error;
+  usePageSeo({
+    title: loaded ? `${product.name}${settings.storeName ? ` — ${settings.storeName}` : ""}` : undefined,
+    description: loaded ? product.description || undefined : undefined,
+    image: loaded && gallery[0] ? cld(gallery[0], 1000) : undefined,
+    jsonLd: loaded
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: product.name,
+          description: product.description || undefined,
+          image: gallery[0] ? [cld(gallery[0], 1000)] : undefined,
+          ...(product.rating && product.rating.count > 0
+            ? {
+                aggregateRating: {
+                  "@type": "AggregateRating",
+                  ratingValue: product.rating.avg,
+                  reviewCount: product.rating.count,
+                },
+              }
+            : {}),
+          ...(sel
+            ? {
+                offers: {
+                  "@type": "Offer",
+                  price: sel.price,
+                  priceCurrency: "INR",
+                  availability:
+                    isOut(sel)
+                      ? "https://schema.org/OutOfStock"
+                      : "https://schema.org/InStock",
+                  url: window.location.href,
+                },
+              }
+            : {}),
+        }
+      : undefined,
+  });
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();

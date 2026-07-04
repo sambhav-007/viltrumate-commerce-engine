@@ -31,6 +31,14 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 5. **Razorpay** — backend (order create via `https`, HMAC signature/webhook verify via `crypto`, idempotent confirm), frontend provider + a Checkout method-sync bug fix. Commits `cb5abbc`,`9363da6`.
 - **Mobile-responsive admin tables** (`.admin-table` card-stacking). Commit `d42b473`.
 
+**This session (Gamma→Theta roadmap):**
+1. **Γ payments hardening** — Razorpay provisioning from manifest (`commerce.payment.razorpay.keyId` + `PROVISION_RAZORPAY_KEY_SECRET`/`_WEBHOOK_SECRET`, fail-fast when enabled without keys); DNS-helper sweep confirmed clean. Commit `d75f0c4`.
+2. **Δ 3B design tokens** — `aura.css` fully tokenized (typography/tracking/radius/density/motion + `--*-rgb` triplets for translucent tints); `StoreSettings.theme.tokens/fonts/motion`; ThemeApplier rework (fixes stale-CSS-var-on-clear bug, derives rgb from hex); FontLoader (runtime Google Fonts); useMotion (store "reduced" + OS `prefers-reduced-motion`); admin Typography & Motion section; `docs/THEMING.md`. Commit `e8a1ad1`.
+3. **Ε presets & layouts** — 5 industry presets (`server/provisioning/industries/`) selected via `store.industry`, merge-under (explicit manifest wins), starter categories; `StoreSettings.layout.home` = editorial|catalog|minimal with Home.js refactored into composable sections (editorial unchanged); admin layout picker. Commit `5bb6ff4`.
+4. **Ζ merchant ops** — inventory (variant `stock`, atomic confirm/cancel movements via `config/inventory.js`, PDP OOS, admin stock column, dashboard low-stock); coupons (model+CRUD+checkout apply, atomic consume on order create, validate rate-limited); server-side order re-pricing (client money never trusted); wishlist (device-local); analytics endpoint + dashboard bars; `NOTIFY_WEBHOOK_URL` order webhooks. Commit `56b1e6e`.
+5. **Η fleet ops** — `backupDb.js`/`restoreDb.js` (EJSON .jsonl, explicit-target restore), `fleet.js` (list/health/backup/reapply) over gitignored `fleet.json` registry, `docs/DEPLOYMENT.md`. Commit `dc3d7a4`.
+6. **Θ growth** — `/sitemap.xml` (server-generated), `usePageSeo` + Product/Offer JSON-LD on PDP, resume-cart bar. (This commit.)
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -42,12 +50,22 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Storefront neutralization (generic copy + `variantLabel`) | ✅ verified |
 | CSV product import | ✅ verified |
 | Razorpay online payment | ⚠️ verified to gateway boundary — see §6 |
+| Razorpay via provisioning (manifest keyId + operator secrets) | ✅ harness-verified |
 | Reviews (feature-flagged) | ✅ |
-| Runtime theme colors + SEO | ✅ |
+| Design tokens 3B (colors+rgb / tokens / fonts / motion, ThemeApplier reset fix) | ✅ built + schema-verified; browser pass pending |
+| Industry presets (beauty/jewelry/footwear/apparel/food) | ✅ harness-verified |
+| Homepage layout variants (editorial / catalog / minimal) | ✅ built; editorial order unchanged |
+| Inventory (flagged: stock, OOS, low-stock, confirm/cancel movements) | ✅ built + offline-verified; runtime pass pending |
+| Coupons (flagged: admin CRUD, checkout apply, atomic consume) | ✅ built + offline-verified; runtime pass pending |
+| Wishlist (flagged, device-local) | ✅ built |
+| Analytics (daily revenue / top products / method split) | ✅ built |
+| Order webhooks (NOTIFY_WEBHOOK_URL) | ✅ built + no-throw verified |
+| Server-side order re-pricing (client totals untrusted) | ✅ built |
+| Fleet ops (backup/restore EJSON, fleet CLI, deploy guide) | ✅ CLI smoke-tested |
+| SEO (sitemap.xml, per-product meta + JSON-LD) | ✅ built |
+| Resume-cart nudge | ✅ built |
 | Responsive admin (mobile) | ✅ verified at 375px |
-| Design-token personality (3B) | 🗺️ planned only |
-| Wishlist / Coupons / Inventory | 🔲 flag placeholders only |
-| Tenant routing / Stripe | 🔲 not started (out of scope) |
+| Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
 
@@ -69,11 +87,10 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ## 6. Open items / next steps
 
-1. **Razorpay live test (highest priority to close):** end-to-end is verified **up to and including** the hosted Checkout modal opening with a real test order, but a **successful test-card capture → `/verify` → order `confirmed`** was not observed (test attempts came back `failed`, which correctly left orders `pending`). To finish: set test keys in a store `.env`, enable `razorpay` in `StoreSettings.payment.enabledProviders`, pay with card `4111 1111 1111 1111` (complete the Success/OTP step), confirm the order flips to `confirmed`. Also set `RAZORPAY_WEBHOOK_SECRET` to exercise the (wired but untested) webhook backstop.
-2. **3B — Design Token Expansion** (planned): tokenize `aura.css` (typography/spacing/radius/motion/density) + `FontLoader` + `useMotion`, extend `StoreSettings.theme.tokens/fonts/motion`. Goal: stores stop *looking* like Aura, not just *reading* generic. Then a fresh audit before Layout Variants / Industry Presets.
-3. **DNS helper in scripts:** `app.js` + provisioning scripts use the shared helper; double-check any remaining standalone scripts.
-4. **Known small bug:** `ThemeApplier` doesn't reset a CSS var when a color is cleared (persists until reload) — fold into 3B's `ThemeApplier` rework.
-5. **Provisioning could set `RAZORPAY_*`** per store (currently env-only).
+1. **Razorpay live test (still the highest-priority close-out; needs a human):** verified up to the hosted Checkout modal; a **successful test-card capture → `/verify` → order `confirmed`** has not been observed. To finish: set test keys in a store `.env` (or provision with the new manifest keys), enable `razorpay`, pay with card `4111 1111 1111 1111` (complete the OTP/Success step), confirm the order flips `confirmed` **and stock decrements when the inventory flag is on**. Also set `RAZORPAY_WEBHOOK_SECRET` to exercise the webhook backstop.
+2. **Browser verification pass for the Γ→Θ feature wave** (per §7 pattern: isolated `vce_verify` DB + Claude Preview on alternate ports): 3B token/font/motion overrides incl. clear-reset, industry-provisioned store look, layout variants, inventory OOS + movements, coupon checkout flow, wishlist, analytics dashboard, sitemap.xml, PDP JSON-LD, resume-cart bar. Offline harnesses (38 checks) + 4 clean production builds passed this session; DOM behavior is what remains.
+3. **Rotate the MongoDB + Cloudinary credentials** exposed in local logs pre-Beta (§8) — still recommended, still pending.
+4. **Optional next wave:** SMTP email notifications (needs nodemailer or a provider API), CSV image-zip upload, Stripe when a non-INR client appears, prerendering for non-JS crawlers.
 
 ## 7. Guardrails / conventions
 
@@ -82,7 +99,7 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 - **Verification pattern (used throughout):** spin an **isolated `vce_verify` database** via a temp boot wrapper that swaps `DATABASE` (never the prod Aura-Rare-Beauty DB), test via API/controllers and/or browser (Claude Preview MCP), then **drop the DB** and remove temp files.
 - **Dev servers:** the user runs their own on **:8000 / :3000** — **ask before killing** anything on those ports; prefer alternate ports / isolated DBs.
 - **Shade→Variant compatibility is locked:** the variant collection stays registered as `"shades"`; internal `shade*` identifiers (cart `shadeId`, `/api/shades` alias, refs) are intentionally retained. Vocabulary moved to "Variant" only at the UI/API surface.
-- Scope discipline: don't start tenant routing, Stripe, wishlist, coupons, inventory, or 3B unless asked.
+- Scope discipline: don't start tenant routing, Stripe, or SMTP email unless asked. (Wishlist, coupons, inventory and 3B shipped in the Γ→Θ wave — they're now maintained features, all flag-gated off by default.)
 
 ## 8. Security notes
 
@@ -97,4 +114,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Beta priorities 1–5 + mobile-responsive admin + back-port to aura-rare-beauty. Branch `vce-alpha` @ `d42b473`, pushed._
+_Last updated: end of the Γ→Θ roadmap wave (payments provisioning, 3B tokens, industry presets + layouts, merchant ops, fleet ops, growth/SEO). Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT._

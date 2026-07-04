@@ -29,6 +29,7 @@ const statsRouter = require("./routes/stats");
 const orderRouter = require("./routes/orders");
 const paymentRouter = require("./routes/payments");
 const couponRouter = require("./routes/coupons");
+const sitemapRouter = require("./routes/sitemap");
 
 /*
  * SOFT-DEPRECATED (disconnected, files retained until full storefront/admin
@@ -104,6 +105,7 @@ app.use("/api/stats", statsRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/coupons", couponRouter); // feature-gated inside the router
+app.use("/", sitemapRouter); // GET /sitemap.xml (point the storefront's robots.txt here)
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
