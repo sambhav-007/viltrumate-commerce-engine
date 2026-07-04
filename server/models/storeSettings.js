@@ -1,11 +1,27 @@
 const mongoose = require("mongoose");
 const { imageSchema } = require("./_image");
 
-// Theme tokens. `colors` is a Map so any CSS variable can be themed without a
-// schema change (keys mirror styles/aura.css :root, e.g. accent, ink, cream).
+// Theme. `colors` and `tokens` are Maps so any CSS variable can be themed
+// without a schema change (keys mirror styles/aura.css :root, sans the --
+// prefix: colors e.g. accent/ink/cream; tokens e.g. radius-btn/track-luxe/
+// section-y). `fonts` + `motion` complete the store's visual personality
+// (3B): fonts are applied by FontLoader (googleFamilies are css2 family
+// specs), motion "reduced" zeroes animation durations via useMotion.
+const fontsSchema = new mongoose.Schema(
+  {
+    body: { type: String, default: "" }, // CSS font-family stack
+    display: { type: String, default: "" },
+    googleFamilies: { type: [String], default: [] }, // e.g. "Sora:wght@400;600"
+  },
+  { _id: false }
+);
+
 const themeSchema = new mongoose.Schema(
   {
     colors: { type: Map, of: String, default: {} },
+    tokens: { type: Map, of: String, default: {} },
+    fonts: { type: fontsSchema, default: () => ({}) },
+    motion: { type: String, enum: ["full", "reduced"], default: "full" },
     logoUrl: { type: String, default: "" },
   },
   { _id: false }

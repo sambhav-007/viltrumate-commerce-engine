@@ -1,4 +1,5 @@
 :root {
+  /* ---- Colors (StoreSettings.theme.colors overrides any of these) ---- */
   --cream: #faf7f2;
   --sand: #f5efe6;
   --card: #ffffff;
@@ -7,6 +8,38 @@
   --accent: #b88a5a;
   --accent-hover: #9c7349;
   --hairline: #e7ded2;
+  /* RGB triplets for rgba() tints — ThemeApplier derives these from the hex
+     colors above so translucent accents re-theme with the palette. */
+  --accent-rgb: 184, 138, 90;
+  --ink-rgb: 31, 31, 31;
+  --cream-rgb: 250, 247, 242;
+
+  /* ---- Design tokens (StoreSettings.theme.tokens overrides any of these;
+          together they carry the store's PERSONALITY, not just its palette) ---- */
+  /* Typography */
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --weight-display: 500;
+  /* Letter-spacing (wide tracking reads "luxury"; tighten for casual verticals) */
+  --track-luxe: 0.22em;
+  --track-wide: 0.08em;
+  --track-btn: 0.18em;
+  --track-nav: 0.16em;
+  --track-eyebrow: 0.32em;
+  /* Corner radius (2-4px reads editorial; raise for soft/friendly brands) */
+  --radius-btn: 2px;
+  --radius-card: 3px;
+  --radius-control: 4px;
+  /* Density */
+  --container-max: 1280px;
+  --section-y: 6rem;
+  --section-y-md: 8.5rem;
+  /* Motion (useMotion zeroes durations for reduced-motion / motion "off") */
+  --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 0.25s;
+  --dur-med: 0.35s;
+  --dur-slow: 0.4s;
+  --dur-zoom: 0.9s;
 }
 
 * { box-sizing: border-box; }
@@ -15,39 +48,39 @@ body,
 #root {
   background: var(--cream);
   color: var(--ink);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 /* ---------- Typography ---------- */
-.font-display { font-family: "Playfair Display", Georgia, serif; }
-.tracking-luxe { letter-spacing: 0.22em; }
-.tracking-wide2 { letter-spacing: 0.08em; }
+.font-display { font-family: var(--font-display); }
+.tracking-luxe { letter-spacing: var(--track-luxe); }
+.tracking-wide2 { letter-spacing: var(--track-wide); }
 
 .display-hero {
-  font-family: "Playfair Display", Georgia, serif;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
   font-size: clamp(2.75rem, 7vw, 5.5rem);
   line-height: 1.04;
   letter-spacing: -0.01em;
 }
 .display-1 {
-  font-family: "Playfair Display", Georgia, serif;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
   font-size: clamp(2rem, 4.5vw, 3.25rem);
   line-height: 1.1;
 }
 .display-2 {
-  font-family: "Playfair Display", Georgia, serif;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
   font-size: clamp(1.5rem, 3vw, 2.25rem);
   line-height: 1.15;
 }
 .eyebrow {
   font-size: 0.72rem;
-  letter-spacing: 0.32em;
+  letter-spacing: var(--track-eyebrow);
   text-transform: uppercase;
   /* darker accent at small sizes for WCAG AA contrast on cream */
   color: var(--accent-hover);
@@ -67,7 +100,7 @@ body,
 
 /* ---------- Layout ---------- */
 .aura-container {
-  max-width: 1280px;
+  max-width: var(--container-max);
   margin: 0 auto;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
@@ -75,9 +108,9 @@ body,
 @media (min-width: 768px) {
   .aura-container { padding-left: 2.5rem; padding-right: 2.5rem; }
 }
-.section { padding-top: 6rem; padding-bottom: 6rem; }
+.section { padding-top: var(--section-y); padding-bottom: var(--section-y); }
 @media (min-width: 768px) {
-  .section { padding-top: 8.5rem; padding-bottom: 8.5rem; }
+  .section { padding-top: var(--section-y-md); padding-bottom: var(--section-y-md); }
 }
 
 /* ---------- Buttons ---------- */
@@ -88,12 +121,12 @@ body,
   align-items: center;
   justify-content: center;
   padding: 1rem 2.25rem;
-  border-radius: 2px;
+  border-radius: var(--radius-btn);
   font-size: 0.78rem;
-  letter-spacing: 0.18em;
+  letter-spacing: var(--track-btn);
   text-transform: uppercase;
   font-weight: 500;
-  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: all var(--dur-med) var(--ease-luxe);
   cursor: pointer;
 }
 .btn-accent { background: var(--accent); color: #fff; }
@@ -106,18 +139,18 @@ body,
 
 /* ---------- Nav ---------- */
 .aura-nav {
-  transition: background 0.4s ease, box-shadow 0.4s ease, height 0.4s ease;
-  background: rgba(250, 247, 242, 0.7);
+  transition: background var(--dur-slow) ease, box-shadow var(--dur-slow) ease, height var(--dur-slow) ease;
+  background: rgba(var(--cream-rgb), 0.7);
   backdrop-filter: blur(12px);
 }
 .aura-nav.scrolled {
-  background: rgba(250, 247, 242, 0.95);
-  box-shadow: 0 1px 0 var(--hairline), 0 8px 30px -24px rgba(31, 31, 31, 0.4);
+  background: rgba(var(--cream-rgb), 0.95);
+  box-shadow: 0 1px 0 var(--hairline), 0 8px 30px -24px rgba(var(--ink-rgb), 0.4);
 }
 .nav-link {
   position: relative;
   font-size: 0.8rem;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--track-nav);
   text-transform: uppercase;
   color: var(--ink);
   font-weight: 400;
@@ -129,7 +162,7 @@ body,
   left: 0; bottom: 0;
   width: 0; height: 1px;
   background: var(--accent);
-  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width var(--dur-med) var(--ease-luxe);
 }
 .nav-link:hover { color: var(--accent); }
 .nav-link:hover::after { width: 100%; }
@@ -137,39 +170,39 @@ body,
 /* ---------- Image hover zoom ---------- */
 .img-zoom { overflow: hidden; }
 .img-zoom .img-zoom-inner {
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--dur-zoom) var(--ease-luxe);
   width: 100%; height: 100%;
 }
 .img-zoom:hover .img-zoom-inner { transform: scale(1.06); }
 
 /* ---------- Cards ---------- */
-.lux-card { background: var(--card); transition: box-shadow 0.4s ease, transform 0.4s ease; }
-.lux-card:hover { box-shadow: 0 30px 60px -40px rgba(31, 31, 31, 0.45); }
+.lux-card { background: var(--card); transition: box-shadow var(--dur-slow) ease, transform var(--dur-slow) ease; }
+.lux-card:hover { box-shadow: 0 30px 60px -40px rgba(var(--ink-rgb), 0.45); }
 
-.cat-card { position: relative; overflow: hidden; border-radius: 3px; }
+.cat-card { position: relative; overflow: hidden; border-radius: var(--radius-card); }
 .cat-card .overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(31,31,31,0.55) 0%, rgba(31,31,31,0.05) 45%, transparent 70%);
-  transition: background 0.4s ease;
+  background: linear-gradient(to top, rgba(var(--ink-rgb),0.55) 0%, rgba(var(--ink-rgb),0.05) 45%, transparent 70%);
+  transition: background var(--dur-slow) ease;
 }
 .cat-card:hover .overlay {
-  background: linear-gradient(to top, rgba(31,31,31,0.7) 0%, rgba(31,31,31,0.15) 55%, transparent 80%);
+  background: linear-gradient(to top, rgba(var(--ink-rgb),0.7) 0%, rgba(var(--ink-rgb),0.15) 55%, transparent 80%);
 }
 
 /* ---------- Shade swatch ---------- */
 .swatch {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--sand) center/cover no-repeat;
   border: 1px solid var(--hairline);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.72rem; color: var(--muted);
-  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease;
+  transition: transform var(--dur-fast) var(--ease-luxe), box-shadow var(--dur-fast) ease;
   position: relative;
 }
-.swatch:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -12px rgba(31,31,31,0.4); }
+.swatch:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -12px rgba(var(--ink-rgb),0.4); }
 .swatch.selected { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); }
 
 /* ---------- Misc ---------- */
@@ -199,23 +232,23 @@ textarea:focus-visible,
 }
 .footer-eyebrow {
   font-size: 0.7rem;
-  letter-spacing: 0.32em;
+  letter-spacing: var(--track-eyebrow);
   text-transform: uppercase;
   color: var(--accent);
   font-weight: 500;
 }
 .footer-link {
-  color: rgba(250, 247, 242, 0.85);
+  color: rgba(var(--cream-rgb), 0.85);
   font-size: 0.92rem;
-  transition: color 0.25s ease, transform 0.25s ease;
+  transition: color var(--dur-fast) ease, transform var(--dur-fast) ease;
   width: fit-content;
 }
 .footer-link:hover {
   color: var(--accent);
   transform: translateX(3px);
 }
-.footer-muted { color: rgba(250, 247, 242, 0.55); }
-.footer-hairline { border-top: 1px solid rgba(250, 247, 242, 0.12); }
+.footer-muted { color: rgba(var(--cream-rgb), 0.55); }
+.footer-hairline { border-top: 1px solid rgba(var(--cream-rgb), 0.12); }
 
 /* Giant wordmark: spans the width, gently clipped at the bottom edge */
 .footer-giant-wrap {
@@ -232,8 +265,8 @@ textarea:focus-visible,
   white-space: nowrap;
   margin-bottom: -0.16em; /* clip the descender edge for the trendy cut-off look */
   color: transparent;
-  -webkit-text-stroke: 1px rgba(250, 247, 242, 0.35);
-  background: linear-gradient(180deg, rgba(250, 247, 242, 0.95) 0%, rgba(184, 138, 90, 0.55) 100%);
+  -webkit-text-stroke: 1px rgba(var(--cream-rgb), 0.35);
+  background: linear-gradient(180deg, rgba(var(--cream-rgb), 0.95) 0%, rgba(var(--accent-rgb), 0.55) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   user-select: none;
@@ -242,8 +275,8 @@ textarea:focus-visible,
 /* ---------- Hero fallback texture (until photography arrives) ---------- */
 .hero-fallback {
   background:
-    radial-gradient(ellipse 60% 50% at 70% 30%, rgba(184, 138, 90, 0.12), transparent 60%),
-    radial-gradient(ellipse 50% 60% at 20% 80%, rgba(184, 138, 90, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 70% 30%, rgba(var(--accent-rgb), 0.12), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 20% 80%, rgba(var(--accent-rgb), 0.08), transparent 55%),
     linear-gradient(120deg, var(--sand) 0%, var(--cream) 100%);
 }
 
@@ -252,16 +285,16 @@ textarea:focus-visible,
   width: 100%;
   background: var(--card);
   border: 1px solid var(--hairline);
-  border-radius: 3px;
+  border-radius: var(--radius-card);
   padding: 0.9rem 1rem;
   font-size: 0.95rem;
   color: var(--ink);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
   outline: none;
 }
 .lux-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(184, 138, 90, 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
 }
 
 /* ---------- Top progress loader ---------- */

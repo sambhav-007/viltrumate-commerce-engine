@@ -62,9 +62,25 @@ const Settings = () => {
   const seo = (s && s.seo) || {};
   const features = (s && s.features) || {};
 
+  const fonts = theme.fonts || {};
+
   const setColor = (k, v) =>
     setS({ ...s, theme: { ...theme, colors: { ...colors, [k]: v } } });
   const setLogo = (v) => setS({ ...s, theme: { ...theme, logoUrl: v } });
+  const setFont = (k, v) =>
+    setS({ ...s, theme: { ...theme, fonts: { ...fonts, [k]: v } } });
+  const setGoogleFamilies = (v) =>
+    setS({
+      ...s,
+      theme: {
+        ...theme,
+        fonts: {
+          ...fonts,
+          googleFamilies: v.split(",").map((x) => x.trim()).filter(Boolean),
+        },
+      },
+    });
+  const setMotion = (v) => setS({ ...s, theme: { ...theme, motion: v } });
   const setSeo = (k, v) => setS({ ...s, seo: { ...seo, [k]: v } });
   const setFeature = (k, v) =>
     setS({ ...s, features: { ...features, [k]: v } });
@@ -199,6 +215,45 @@ const Settings = () => {
                 value={theme.logoUrl || ""}
                 onChange={(e) => setLogo(e.target.value)}
               />
+            </Field>
+          </Section>
+
+          {/* Typography & Motion (3B personality) */}
+          <Section title="Typography & Motion">
+            <p className="text-sm text-gray-500 mb-3">
+              Per-store fonts and animation. Leave blank to use the engine
+              defaults.
+            </p>
+            <Field label="Google Fonts families (comma-separated css2 specs, e.g. Sora:wght@400;600, Fraunces:wght@500)">
+              <Input
+                value={(fonts.googleFamilies || []).join(", ")}
+                onChange={(e) => setGoogleFamilies(e.target.value)}
+              />
+            </Field>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <Field label="Body font stack">
+                <Input
+                  value={fonts.body || ""}
+                  placeholder={THEME_DEFAULTS.fonts.body}
+                  onChange={(e) => setFont("body", e.target.value)}
+                />
+              </Field>
+              <Field label="Display font stack">
+                <Input
+                  value={fonts.display || ""}
+                  placeholder={THEME_DEFAULTS.fonts.display}
+                  onChange={(e) => setFont("display", e.target.value)}
+                />
+              </Field>
+            </div>
+            <Field label="Motion">
+              <Select
+                value={theme.motion || "full"}
+                onChange={(e) => setMotion(e.target.value)}
+              >
+                <option value="full">Full (default animations)</option>
+                <option value="reduced">Reduced (minimal animation)</option>
+              </Select>
             </Field>
           </Section>
 

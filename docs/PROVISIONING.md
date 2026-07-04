@@ -55,7 +55,7 @@ export PROVISION_RAZORPAY_WEBHOOK_SECRET="..."   # optional webhook backstop
 | Group | Fields |
 | --- | --- |
 | Identity | store name, currency, locale, variant label, contact info |
-| Branding | logo, theme colors, SEO (title/description/og image) |
+| Branding | logo, theme colors, design tokens (radius/tracking/density), fonts (incl. Google Fonts), motion level, SEO (title/description/og image) |
 | Commerce | enabled payment methods, feature flags |
 | Admin | initial admin user (password generated if omitted) |
 | Infrastructure | database name, Cloudinary folder |

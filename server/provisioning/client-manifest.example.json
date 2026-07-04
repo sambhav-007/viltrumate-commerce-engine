@@ -24,7 +24,10 @@
           "accent": "#b8336a",
           "ink": "#1a1a1a",
           "cream": "#faf6f2"
-        }
+        },
+        "tokens": {},
+        "fonts": { "body": "", "display": "", "googleFamilies": [] },
+        "motion": "full"
       },
       "seo": {
         "metaTitle": "Acme Glow — Clean Beauty",

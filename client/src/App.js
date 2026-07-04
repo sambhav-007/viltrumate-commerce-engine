@@ -7,6 +7,7 @@ import AdminProtectedRoute from "./components/shop/auth/AdminProtectedRoute";
 import TopLoader from "./storefront/TopLoader";
 import ScrollToTop from "./storefront/ScrollToTop";
 import ThemeApplier from "./storefront/ThemeApplier";
+import FontLoader from "./storefront/FontLoader";
 import SeoHead from "./storefront/SeoHead";
 
 // Storefront (customer-critical path, bundled eagerly)
@@ -42,6 +43,7 @@ function App() {
     <SettingsProvider>
       <CartProvider>
         <ThemeApplier />
+        <FontLoader />
         <SeoHead />
         <TopLoader />
         <Router>

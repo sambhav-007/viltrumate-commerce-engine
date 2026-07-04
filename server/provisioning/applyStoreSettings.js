@@ -25,8 +25,19 @@ async function applyStoreSettings(manifest) {
   doc.heroSubheading = id.heroSubheading || "";
   doc.variantLabel = id.variantLabel || "";
 
-  // Branding
-  doc.theme = { colors: (b.theme && b.theme.colors) || {}, logoUrl: b.logoUrl || "" };
+  // Branding (colors = palette; tokens/fonts/motion = 3B personality)
+  const t = b.theme || {};
+  doc.theme = {
+    colors: t.colors || {},
+    tokens: t.tokens || {},
+    fonts: {
+      body: (t.fonts && t.fonts.body) || "",
+      display: (t.fonts && t.fonts.display) || "",
+      googleFamilies: (t.fonts && t.fonts.googleFamilies) || [],
+    },
+    motion: t.motion === "reduced" ? "reduced" : "full",
+    logoUrl: b.logoUrl || "",
+  };
   doc.seo = {
     metaTitle: (b.seo && b.seo.metaTitle) || "",
     metaDescription: (b.seo && b.seo.metaDescription) || "",
