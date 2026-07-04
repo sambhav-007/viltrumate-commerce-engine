@@ -10,7 +10,7 @@ import {
   deleteVariant,
   deleteVariantImage,
 } from "../../../api/admin";
-import { useSettings } from "../../../context/SettingsContext";
+import { useSettings, useFeature } from "../../../context/SettingsContext";
 import { VARIANT_LABEL } from "../../../config/store.config";
 import {
   Spinner,
@@ -31,6 +31,7 @@ const VariantManager = () => {
   const settings = useSettings();
   const L = settings.variantLabel || VARIANT_LABEL; // singular label
   const Lp = `${L}s`; // plural label
+  const inventoryOn = useFeature("inventory");
   const [product, setProduct] = useState(null);
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState({});
@@ -70,6 +71,8 @@ const VariantManager = () => {
       price: r.price,
       mrp: r.mrp === null ? "" : r.mrp,
       status: r.status,
+      // stock: "" clears tracking (unlimited); numbers set the on-hand count
+      stock: r.stock == null ? "" : r.stock,
     });
     if (res.error) return toast(res.error, "error");
     toast(`${L} saved`);
@@ -171,6 +174,7 @@ const VariantManager = () => {
                   <th className="p-2">Name</th>
                   <th className="p-2">Price</th>
                   <th className="p-2">MRP</th>
+                  {inventoryOn && <th className="p-2">Stock</th>}
                   <th className="p-2">Status</th>
                   <th className="p-2 text-right">Actions</th>
                 </tr>
@@ -178,7 +182,7 @@ const VariantManager = () => {
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="p-6 text-center text-gray-400">
+                    <td colSpan={inventoryOn ? 9 : 8} className="p-6 text-center text-gray-400">
                       No {Lp.toLowerCase()} yet. Use “Bulk Add”.
                     </td>
                   </tr>
@@ -249,6 +253,17 @@ const VariantManager = () => {
                         onChange={(e) => setRow(r._id, { mrp: e.target.value })}
                       />
                     </td>
+                    {inventoryOn && (
+                      <td className="p-2 w-24" data-label="Stock">
+                        <Input
+                          type="number"
+                          placeholder="∞"
+                          title="Blank = untracked (unlimited)"
+                          value={r.stock == null ? "" : r.stock}
+                          onChange={(e) => setRow(r._id, { stock: e.target.value })}
+                        />
+                      </td>
+                    )}
                     <td className="p-2 w-28" data-label="Status">
                       <Select
                         value={r.status}

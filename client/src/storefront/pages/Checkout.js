@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Link, useHistory } from "react-router-dom";
 import Layout from "../Layout";
 import { useCart } from "../../context/CartContext";
-import { useSettings } from "../../context/SettingsContext";
+import { useSettings, useFeature } from "../../context/SettingsContext";
 import { money } from "../format";
-import { createOrder } from "../../api/shop";
+import { createOrder, validateCoupon } from "../../api/shop";
 import { getEnabledProviders } from "../../payments";
 import { buildOrderPayload } from "../../payments/PaymentProvider";
 
@@ -15,6 +15,25 @@ const Checkout = () => {
   const [f, setF] = useState({ name: "", phone: "", address: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Coupon (feature-flagged). The server re-validates on order create.
+  const couponsOn = useFeature("coupons");
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState(null); // { code, discount }
+  const [couponErr, setCouponErr] = useState("");
+  const payable = Math.max(0, total - (coupon ? coupon.discount : 0));
+
+  const applyCoupon = async () => {
+    setCouponErr("");
+    const code = couponInput.trim();
+    if (!code) return;
+    const res = await validateCoupon(code, total);
+    if (!res || res.error || !res.valid) {
+      setCoupon(null);
+      return setCouponErr((res && res.error) || "This coupon can't be applied");
+    }
+    setCoupon({ code: res.code, discount: res.discount });
+  };
 
   // Available checkout methods for this store (feature-flag + config gated).
   const providers = getEnabledProviders(settings);
@@ -41,7 +60,7 @@ const Checkout = () => {
 
     setBusy(true);
     // 1) Persist the order first, so every method is recorded.
-    const payload = buildOrderPayload(items, total, f, provider.id);
+    const payload = buildOrderPayload(items, payable, f, provider.id, coupon);
     const res = await createOrder(payload);
     if (!res || res.error) {
       setBusy(false);
@@ -50,7 +69,7 @@ const Checkout = () => {
     // 2) Hand off to the selected provider.
     const out = await provider.checkout({
       items,
-      total,
+      total: payable,
       customer: f,
       settings,
       orderId: res.order && res.order._id,
@@ -151,9 +170,47 @@ const Checkout = () => {
               <span>{money(it.price * it.qty)}</span>
             </div>
           ))}
+
+          {couponsOn && (
+            <div className="mt-5">
+              {coupon ? (
+                <div className="flex justify-between items-center text-sm">
+                  <span>
+                    Coupon <b>{coupon.code}</b>{" "}
+                    <button
+                      type="button"
+                      className="text-muted underline ml-1"
+                      onClick={() => {
+                        setCoupon(null);
+                        setCouponInput("");
+                      }}
+                    >
+                      remove
+                    </button>
+                  </span>
+                  <span>−{money(coupon.discount)}</span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    className="lux-input"
+                    style={{ padding: "0.55rem 0.9rem" }}
+                    placeholder="Coupon code"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                  />
+                  <button type="button" className="btn-outline" style={{ padding: "0.55rem 1.2rem" }} onClick={applyCoupon}>
+                    Apply
+                  </button>
+                </div>
+              )}
+              {couponErr && <p className="text-xs text-red-600 mt-2">{couponErr}</p>}
+            </div>
+          )}
+
           <div className="flex justify-between mt-4 font-medium">
             <span>Total</span>
-            <span>{money(total)}</span>
+            <span>{money(payable)}</span>
           </div>
         </div>
       </div>

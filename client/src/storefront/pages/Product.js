@@ -5,7 +5,7 @@ import Layout from "../Layout";
 import ProductCard from "../ProductCard";
 import Reveal from "../Reveal";
 import { useCart } from "../../context/CartContext";
-import { useSettings } from "../../context/SettingsContext";
+import { useSettings, useFeature } from "../../context/SettingsContext";
 import { getProduct, getProducts } from "../../api/shop";
 import { money, cld } from "../format";
 import { VARIANT_LABEL } from "../../config/store.config";
@@ -16,6 +16,11 @@ const Product = () => {
   const { add } = useCart();
   const settings = useSettings();
   const vlabel = settings.variantLabel || VARIANT_LABEL;
+  const inventoryOn = useFeature("inventory");
+  // Out of stock: only when the store tracks inventory AND this variant is
+  // tracked (stock !== null) AND it's depleted.
+  const isOut = (v) =>
+    inventoryOn && v && v.stock !== null && v.stock !== undefined && v.stock <= 0;
   const [product, setProduct] = useState(null);
   const [shades, setShades] = useState([]);
   const [sel, setSel] = useState(null);
@@ -64,7 +69,7 @@ const Product = () => {
     return <Layout><p className="text-center text-muted py-40">Product not found.</p></Layout>;
 
   const addToCart = () => {
-    if (!sel) return;
+    if (!sel || isOut(sel)) return;
     add(
       {
         shadeId: sel._id,
@@ -169,13 +174,17 @@ const Product = () => {
               {shown.map((sh) => {
                 const thumb = sh.images && sh.images[0] && sh.images[0].url;
                 const num = sh.name.replace(/[^0-9]/g, "").slice(-2);
+                const out = isOut(sh);
                 return (
                   <button
                     key={sh._id}
-                    title={sh.name}
+                    title={out ? `${sh.name} — Out of stock` : sh.name}
                     onClick={() => setSel(sh)}
                     className={`swatch ${sel && sel._id === sh._id ? "selected" : ""}`}
-                    style={thumb ? { backgroundImage: `url(${cld(thumb, 120)})` } : undefined}
+                    style={{
+                      ...(thumb ? { backgroundImage: `url(${cld(thumb, 120)})` } : null),
+                      ...(out ? { opacity: 0.35 } : null),
+                    }}
                   >
                     {!thumb && (num || sh.name.slice(0, 2))}
                   </button>
@@ -196,8 +205,12 @@ const Product = () => {
               <span className="px-4">{qty}</span>
               <button className="px-4 text-lg" onClick={() => setQty(qty + 1)}>+</button>
             </div>
-            <button className="btn-accent flex-1" onClick={addToCart} disabled={!sel}>
-              {added ? "Added ✓" : "Add to Cart"}
+            <button
+              className="btn-accent flex-1"
+              onClick={addToCart}
+              disabled={!sel || isOut(sel)}
+            >
+              {isOut(sel) ? "Out of Stock" : added ? "Added ✓" : "Add to Cart"}
             </button>
           </div>
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { Link, useHistory } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { useSettings } from "../context/SettingsContext";
+import { useSettings, useFeature } from "../context/SettingsContext";
 import { getCategories, search as searchApi } from "../api/shop";
 import Logo from "./Logo";
 import { cld } from "./format";
@@ -13,6 +13,7 @@ const Navbar = () => {
   const history = useHistory();
   const { count, setOpen } = useCart();
   const settings = useSettings();
+  const wishlistOn = useFeature("wishlist");
   const t = useContent();
   const [cats, setCats] = useState([]);
   const [q, setQ] = useState("");
@@ -103,6 +104,18 @@ const Navbar = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m2.2-5.3a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
             </svg>
           </button>
+          {wishlistOn && (
+            <Link
+              to="/wishlist"
+              className="text-ink hover:text-accent transition-colors"
+              aria-label="Wishlist"
+              title="Wishlist"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.6c0 5.2-7.2 9.9-9 10.9-1.8-1-9-5.7-9-10.9A4.9 4.9 0 017.9 3.7 5 5 0 0112 5.6a5 5 0 014.1-1.9A4.9 4.9 0 0121 8.6z" />
+              </svg>
+            </Link>
+          )}
           <button
             onClick={() => setOpen(true)}
             className="relative text-ink hover:text-accent transition-colors"

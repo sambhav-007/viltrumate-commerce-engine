@@ -28,6 +28,7 @@ const searchRouter = require("./routes/search");
 const statsRouter = require("./routes/stats");
 const orderRouter = require("./routes/orders");
 const paymentRouter = require("./routes/payments");
+const couponRouter = require("./routes/coupons");
 
 /*
  * SOFT-DEPRECATED (disconnected, files retained until full storefront/admin
@@ -79,6 +80,7 @@ app.use(
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 const reviewLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
 const orderLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30 });
+const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }); // code guessing
 app.use("/api/signin", authLimiter);
 app.use("/api/reviews", (req, res, next) =>
   req.method === "POST" ? reviewLimiter(req, res, next) : next()
@@ -86,6 +88,7 @@ app.use("/api/reviews", (req, res, next) =>
 app.use("/api/orders", (req, res, next) =>
   req.method === "POST" ? orderLimiter(req, res, next) : next()
 );
+app.use("/api/coupons/validate", couponLimiter);
 
 // Routes
 app.use("/api", authRouter);
@@ -100,6 +103,7 @@ app.use("/api/search", searchRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/payments", paymentRouter);
+app.use("/api/coupons", couponRouter); // feature-gated inside the router
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 

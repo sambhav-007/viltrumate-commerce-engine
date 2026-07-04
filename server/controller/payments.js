@@ -1,13 +1,22 @@
 const Order = require("../models/orders");
 const razorpay = require("../config/razorpay");
+const { applyOrderTransition } = require("../config/inventory");
+const notify = require("../config/notify");
 
 // Mark a VCE order paid/confirmed exactly once (idempotent for verify+webhook).
 async function confirmPaid(order, paymentId) {
-  if (order.status === "pending") order.status = "confirmed";
+  const wasPending = order.status === "pending";
+  if (wasPending) order.status = "confirmed";
   order.payment = order.payment || {};
   if (paymentId) order.payment.providerPaymentId = paymentId;
   if (!order.payment.paidAt) order.payment.paidAt = new Date();
   await order.save();
+  // Inventory decrement exactly once (guarded by wasPending; idempotent for
+  // the verify+webhook double-fire because the second call sees "confirmed").
+  if (wasPending) {
+    await applyOrderTransition(order, "pending", "confirmed");
+    notify.orderStatusChanged(order, "pending"); // fire-and-forget
+  }
 }
 
 class PaymentsController {

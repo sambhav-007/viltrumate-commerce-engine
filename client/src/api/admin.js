@@ -108,3 +108,12 @@ export const updateOrderStatus = (id, status) =>
 /* ---- Settings ---- */
 export const getSettings = () => get("/settings");
 export const updateSettings = (obj) => put("/settings", form(obj), authForm());
+
+/* ---- Coupons (feature-flagged) ---- */
+export const getCoupons = () => get("/coupons", auth());
+export const createCoupon = (body) => post("/coupons", body, auth());
+export const updateCoupon = (id, body) => put(`/coupons/${id}`, body, auth());
+export const deleteCoupon = (id) => del(`/coupons/${id}`, auth());
+
+/* ---- Analytics ---- */
+export const getAnalytics = (days = 30) => get(`/stats/analytics?days=${days}`, auth());

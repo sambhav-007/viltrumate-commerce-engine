@@ -1,5 +1,6 @@
 import React, { Fragment } from "react";
 import { useLocation, useHistory } from "react-router-dom";
+import { useFeature } from "../../../context/SettingsContext";
 
 const Item = ({ to, label, active, onClick }) => (
   <Fragment>
@@ -20,6 +21,7 @@ const links = [
   { path: "/admin/dashboard/categories", label: "Categories" },
   { path: "/admin/dashboard/products", label: "Products" },
   { path: "/admin/dashboard/orders", label: "Orders" },
+  { path: "/admin/dashboard/coupons", label: "Coupons", feature: "coupons" },
   { path: "/admin/dashboard/banners", label: "Banners" },
   { path: "/admin/dashboard/reviews", label: "Reviews" },
   { path: "/admin/dashboard/settings", label: "Store Settings" },
@@ -28,13 +30,15 @@ const links = [
 const AdminSidebar = () => {
   const location = useLocation();
   const history = useHistory();
+  const couponsOn = useFeature("coupons");
+  const visible = links.filter((l) => !l.feature || (l.feature === "coupons" && couponsOn));
   return (
     <div
       style={{ boxShadow: "1px 1px 8px 0.2px #aaaaaa" }}
       id="sidebar"
       className="hidden md:block sticky top-0 left-0 h-screen md:w-3/12 lg:w-2/12 bg-white"
     >
-      {links.map((l) => (
+      {visible.map((l) => (
         <Item
           key={l.path}
           label={l.label}

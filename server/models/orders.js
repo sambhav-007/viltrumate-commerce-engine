@@ -25,6 +25,11 @@ const orderSchema = new mongoose.Schema(
       address: { type: String, default: "" },
     },
     total: { type: Number, default: 0 },
+    // Applied coupon snapshot (feature-flagged). total is AFTER the discount.
+    coupon: {
+      code: { type: String, default: "" },
+      discount: { type: Number, default: 0 },
+    },
     paymentMethod: { type: String, default: "whatsapp" }, // provider id
     // Online-payment references (Razorpay etc.). Optional — WhatsApp/COD leave it empty.
     payment: {

@@ -16,7 +16,9 @@
 // or just resolve ok (e.g. Cash on Delivery).
 
 // Map cart items + customer into the server Order payload (variant-named).
-export const buildOrderPayload = (items, total, customer, paymentMethod) => ({
+// `coupon` is optional ({ code }) — the server re-validates and re-prices, so
+// only the code travels.
+export const buildOrderPayload = (items, total, customer, paymentMethod, coupon) => ({
   items: (items || []).map((it) => ({
     variantId: it.shadeId,
     variantName: it.shadeName,
@@ -28,4 +30,5 @@ export const buildOrderPayload = (items, total, customer, paymentMethod) => ({
   customer,
   total,
   paymentMethod,
+  ...(coupon && coupon.code ? { coupon: { code: coupon.code } } : {}),
 });

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
 import { SettingsProvider } from "./context/SettingsContext";
 import { CartProvider } from "./context/CartContext";
+import { WishlistProvider } from "./context/WishlistContext";
 import AdminProtectedRoute from "./components/shop/auth/AdminProtectedRoute";
 import TopLoader from "./storefront/TopLoader";
 import ScrollToTop from "./storefront/ScrollToTop";
@@ -17,6 +18,7 @@ import Category from "./storefront/pages/Category";
 import Product from "./storefront/pages/Product";
 import Search from "./storefront/pages/Search";
 import Cart from "./storefront/pages/Cart";
+import Wishlist from "./storefront/pages/Wishlist";
 import Checkout from "./storefront/pages/Checkout";
 import ThankYou from "./storefront/pages/ThankYou";
 import About from "./storefront/pages/About";
@@ -32,6 +34,7 @@ const VariantManager = lazy(() => import("./components/admin/variants"));
 const Banners = lazy(() => import("./components/admin/banners"));
 const Reviews = lazy(() => import("./components/admin/reviews"));
 const Orders = lazy(() => import("./components/admin/orders"));
+const Coupons = lazy(() => import("./components/admin/coupons"));
 const Settings = lazy(() => import("./components/admin/settings"));
 
 const AdminFallback = (
@@ -42,6 +45,7 @@ function App() {
   return (
     <SettingsProvider>
       <CartProvider>
+       <WishlistProvider>
         <ThemeApplier />
         <FontLoader />
         <SeoHead />
@@ -57,6 +61,7 @@ function App() {
               <Route exact path="/product/:slug" component={Product} />
               <Route exact path="/search" component={Search} />
               <Route exact path="/cart" component={Cart} />
+              <Route exact path="/wishlist" component={Wishlist} />
               <Route exact path="/checkout" component={Checkout} />
               <Route exact path="/thank-you" component={ThankYou} />
               <Route exact path="/about" component={About} />
@@ -85,12 +90,14 @@ function App() {
               <AdminProtectedRoute exact path="/admin/dashboard/banners" component={Banners} />
               <AdminProtectedRoute exact path="/admin/dashboard/reviews" component={Reviews} />
               <AdminProtectedRoute exact path="/admin/dashboard/orders" component={Orders} />
+              <AdminProtectedRoute exact path="/admin/dashboard/coupons" component={Coupons} />
               <AdminProtectedRoute exact path="/admin/dashboard/settings" component={Settings} />
 
               <Route component={NotFound} />
             </Switch>
           </Suspense>
         </Router>
+       </WishlistProvider>
       </CartProvider>
     </SettingsProvider>
   );

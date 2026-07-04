@@ -22,6 +22,10 @@ export const submitReview = (body) =>
 export const createOrder = (body) =>
   axios.post(`${base}/orders`, body).then(data).catch(fail);
 
+// Coupons (feature-flagged): validate a code against the current cart total.
+export const validateCoupon = (code, cartTotal) =>
+  axios.post(`${base}/coupons/validate`, { code, cartTotal }).then(data).catch(fail);
+
 // Razorpay: create the gateway order for an existing VCE order, then verify.
 export const createRazorpayOrder = (orderId) =>
   axios.post(`${base}/payments/razorpay/order`, { orderId }).then(data).catch(fail);

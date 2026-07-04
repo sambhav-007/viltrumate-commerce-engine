@@ -19,6 +19,11 @@ const variantSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     images: { type: [imageSchema], default: [] },
     status: { type: String, enum: ["Active", "Disabled"], default: "Active" },
+    // Inventory (feature-flagged): null = untracked (unlimited). Decremented
+    // when an order is confirmed, restored when a confirmed order is
+    // cancelled (see config/inventory.js). May go negative on oversell —
+    // the admin surfaces that rather than hiding it.
+    stock: { type: Number, default: null },
   },
   { timestamps: true }
 );

@@ -8,6 +8,14 @@ const { deleteVariantById } = require("../config/cascade");
 const badPrice = (v) =>
   v !== undefined && v !== null && v !== "" && (isNaN(Number(v)) || Number(v) < 0);
 
+// Stock: "" / null clears tracking; otherwise a non-negative integer.
+const parseStock = (v) => {
+  if (v === undefined) return undefined; // not in payload -> untouched
+  if (v === null || v === "") return null; // clear -> untracked
+  const n = Number(v);
+  return isNaN(n) || n < 0 ? undefined : Math.floor(n);
+};
+
 class VariantController {
   // GET /api/variants/by-product/:productId
   async getByProduct(req, res) {
@@ -137,6 +145,8 @@ class VariantController {
       if (mrp !== undefined) variant.mrp = mrp;
       if (description !== undefined) variant.description = description;
       if (status !== undefined) variant.status = status;
+      const stock = parseStock(req.body.stock); // null clears, undefined = untouched
+      if (stock !== undefined) variant.stock = stock;
       if (req.files && req.files.length) variant.images.push(...toImages(req.files));
       await variant.save();
       return res.json({ success: "Variant updated", variant, shade: variant });

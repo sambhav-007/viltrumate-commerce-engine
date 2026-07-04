@@ -1,4 +1,9 @@
 const Order = require("../models/orders");
+const Coupon = require("../models/coupons");
+const Variant = require("../models/shades");
+const { applyOrderTransition } = require("../config/inventory");
+const { isFeatureEnabled } = require("../config/features");
+const notify = require("../config/notify");
 
 // Allowed status transitions. Terminal states (fulfilled, cancelled) accept none.
 const TRANSITIONS = {
@@ -23,12 +28,64 @@ class OrderController {
       if (!Array.isArray(items) || !items.length) {
         return res.status(400).json({ error: "Order has no items" });
       }
+      // Server-side money math — neither the client's total nor its line
+      // prices are trusted. Re-price every line from the live variant; the
+      // client snapshot only survives for variants deleted since carting.
+      const ids = items.map((it) => it.variantId).filter(Boolean);
+      const dbVariants = ids.length
+        ? await Variant.find({ _id: { $in: ids } }).select("price")
+        : [];
+      const priceOf = new Map(dbVariants.map((v) => [String(v._id), v.price]));
+      let itemsTotal = 0;
+      for (const it of items) {
+        const key = String(it.variantId || "");
+        if (priceOf.has(key)) it.price = priceOf.get(key);
+        itemsTotal += (Number(it.price) || 0) * (Number(it.qty) || 1);
+      }
+
+      // Coupon: re-validate and consume atomically (never trust the client's
+      // discount). findOneAndUpdate's filter re-checks status/expiry/maxUses
+      // so two concurrent orders can't overspend a maxUses cap.
+      let couponSnap = { code: "", discount: 0 };
+      const code = req.body.coupon && req.body.coupon.code;
+      if (code && isFeatureEnabled("coupons")) {
+        const now = new Date();
+        const coupon = await Coupon.findOneAndUpdate(
+          {
+            code: String(code).trim().toUpperCase(),
+            status: "Active",
+            $and: [
+              { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
+              {
+                $or: [
+                  { maxUses: null },
+                  { $expr: { $lt: ["$usedCount", "$maxUses"] } },
+                ],
+              },
+            ],
+            minCart: { $lte: itemsTotal },
+          },
+          { $inc: { usedCount: 1 } },
+          { new: true }
+        );
+        if (!coupon) {
+          return res.status(400).json({ error: "This coupon can't be applied" });
+        }
+        // discountFor re-checks nothing that could have changed; compute the
+        // amount from the same document we just consumed.
+        const raw =
+          coupon.type === "percent" ? (itemsTotal * coupon.value) / 100 : coupon.value;
+        couponSnap = { code: coupon.code, discount: Math.min(Math.round(raw), itemsTotal) };
+      }
+
       const order = await Order.create({
         items,
         customer,
-        total,
+        total: itemsTotal - couponSnap.discount,
+        coupon: couponSnap,
         paymentMethod: paymentMethod || "whatsapp",
       });
+      notify.orderCreated(order); // fire-and-forget
       return res.json({ success: "Order created", order });
     } catch (err) {
       return res.status(500).json({ error: "Failed to create order" });
@@ -88,8 +145,12 @@ class OrderController {
           error: `Cannot change status from "${order.status}" to "${status}"`,
         });
       }
+      const previous = order.status;
       order.status = status;
       await order.save();
+      // Inventory movement (no-op unless the feature is enabled).
+      await applyOrderTransition(order, previous, status);
+      notify.orderStatusChanged(order, previous); // fire-and-forget
       return res.json({ success: "Order updated", order });
     } catch (err) {
       return res.status(500).json({ error: "Failed to update order" });
