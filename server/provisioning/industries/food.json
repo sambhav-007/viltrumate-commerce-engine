@@ -1,0 +1,35 @@
+{
+  "name": "Food & Beverages",
+  "identity": { "variantLabel": "Pack Size" },
+  "theme": {
+    "colors": {
+      "cream": "#fffdf7",
+      "sand": "#faf3e3",
+      "ink": "#33291f",
+      "muted": "#7a6f63",
+      "accent": "#c4622d",
+      "accent-hover": "#a34f22",
+      "hairline": "#eee3cf"
+    },
+    "tokens": {
+      "radius-btn": "999px",
+      "radius-card": "14px",
+      "radius-control": "10px",
+      "track-luxe": "0.06em",
+      "track-btn": "0.06em",
+      "track-eyebrow": "0.14em",
+      "weight-display": "700",
+      "section-y": "4rem",
+      "section-y-md": "5.5rem"
+    },
+    "fonts": {
+      "body": "'Nunito', system-ui, sans-serif",
+      "display": "'Nunito', system-ui, sans-serif",
+      "googleFamilies": ["Nunito:wght@400;600;800"]
+    },
+    "motion": "full"
+  },
+  "layout": { "home": "catalog" },
+  "features": { "reviews": true },
+  "categories": ["Bestsellers", "Snacks", "Beverages", "Gift Hampers"]
+}

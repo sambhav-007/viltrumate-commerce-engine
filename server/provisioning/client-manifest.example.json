@@ -2,6 +2,7 @@
   "version": 1,
   "store": {
     "id": "acme-glow",
+    "industry": "beauty",
     "identity": {
       "storeName": "Acme Glow",
       "currencySymbol": "₹",
@@ -29,6 +30,7 @@
         "fonts": { "body": "", "display": "", "googleFamilies": [] },
         "motion": "full"
       },
+      "layout": { "home": "" },
       "seo": {
         "metaTitle": "Acme Glow — Clean Beauty",
         "metaDescription": "Clean, considered beauty essentials for everyday radiance.",

@@ -74,6 +74,18 @@ Provisioning writes `RAZORPAY_*` into `server/.env` and enables the provider via
 `StoreSettings.payment.enabledProviders`. Enabling `razorpay` without keys **fails fast** —
 a store must never ship with a broken money path. WhatsApp/COD stores need none of this.
 
+## Industry presets
+
+Set `store.industry` in the manifest to pre-fill an entire vertical personality —
+variant label, theme colors + design tokens + fonts + motion, homepage layout, feature
+flags, and starter categories. Anything you set explicitly in the manifest **always wins**;
+the industry only fills what you left blank.
+
+Available: `beauty`, `jewelry`, `footwear`, `apparel`, `food`
+(one JSON each in `server/provisioning/industries/` — adding a vertical is just a new file).
+
+Starter categories are seeded only when the catalog preset is `empty`.
+
 ## Catalog presets
 
 - `empty` — default; no products (the client adds catalog via the admin or a future CSV import).

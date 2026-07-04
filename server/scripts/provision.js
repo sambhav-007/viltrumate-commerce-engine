@@ -16,6 +16,7 @@ const readline = require("readline");
 const mongoose = require("mongoose");
 const { connect } = require("../config/db");
 const { load, save, set } = require("../provisioning/loadManifest");
+const { applyIndustry } = require("../provisioning/applyIndustry");
 const { generateEnv, buildDatabaseUri } = require("../provisioning/generateEnv");
 const { applyStoreSettings } = require("../provisioning/applyStoreSettings");
 const { createAdminUser } = require("../provisioning/createAdminUser");
@@ -66,6 +67,10 @@ async function run() {
   }
   delete manifest.admin.password;
 
+  // Industry preset (store.industry): fills variant label, theme personality,
+  // layout, features and starter categories UNDER any explicit manifest values.
+  const { categories: industryCategories } = applyIndustry(manifest);
+
   const presetName = (manifest.store.catalog && manifest.store.catalog.preset) || "empty";
   if (!/^[a-z0-9-]+$/.test(presetName)) throw new Error(`Invalid catalog preset: ${presetName}`);
 
@@ -83,6 +88,11 @@ async function run() {
     name: manifest.admin.name,
   });
   const preset = require(`../provisioning/presets/${presetName}.json`);
+  // Industry starter categories seed only when the catalog preset brings none
+  // (real stores use "empty"; a data preset's own categories take priority).
+  if (industryCategories.length && !(preset.categories || []).length) {
+    preset.categories = industryCategories;
+  }
   const counts = await seedCatalog(preset);
 
   await mongoose.disconnect();

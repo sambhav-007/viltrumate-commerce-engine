@@ -38,6 +38,7 @@ async function applyStoreSettings(manifest) {
     motion: t.motion === "reduced" ? "reduced" : "full",
     logoUrl: b.logoUrl || "",
   };
+  doc.layout = { home: (b.layout && b.layout.home) || "editorial" };
   doc.seo = {
     metaTitle: (b.seo && b.seo.metaTitle) || "",
     metaDescription: (b.seo && b.seo.metaDescription) || "",

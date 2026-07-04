@@ -1,0 +1,13 @@
+{
+  "name": "Beauty & Cosmetics",
+  "identity": { "variantLabel": "Shade" },
+  "theme": {
+    "colors": {},
+    "tokens": {},
+    "fonts": { "body": "", "display": "", "googleFamilies": [] },
+    "motion": "full"
+  },
+  "layout": { "home": "editorial" },
+  "features": { "reviews": true },
+  "categories": ["Lips", "Face", "Nails", "Gifting"]
+}

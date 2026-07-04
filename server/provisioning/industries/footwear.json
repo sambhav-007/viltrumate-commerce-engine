@@ -1,0 +1,35 @@
+{
+  "name": "Footwear & Sneakers",
+  "identity": { "variantLabel": "Size" },
+  "theme": {
+    "colors": {
+      "cream": "#ffffff",
+      "sand": "#f4f4f4",
+      "ink": "#111111",
+      "muted": "#6f6f6f",
+      "accent": "#111111",
+      "accent-hover": "#333333",
+      "hairline": "#e5e5e5"
+    },
+    "tokens": {
+      "radius-btn": "0px",
+      "radius-card": "0px",
+      "track-luxe": "0.04em",
+      "track-btn": "0.08em",
+      "track-eyebrow": "0.18em",
+      "weight-display": "700",
+      "container-max": "1440px",
+      "section-y": "4.5rem",
+      "section-y-md": "6rem"
+    },
+    "fonts": {
+      "body": "'Inter Tight', system-ui, sans-serif",
+      "display": "'Space Grotesk', system-ui, sans-serif",
+      "googleFamilies": ["Inter+Tight:wght@400;500;600", "Space+Grotesk:wght@500;700"]
+    },
+    "motion": "full"
+  },
+  "layout": { "home": "catalog" },
+  "features": { "reviews": true },
+  "categories": ["Sneakers", "Running", "Slides", "Accessories"]
+}

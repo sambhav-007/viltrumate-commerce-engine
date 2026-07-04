@@ -1,0 +1,32 @@
+{
+  "name": "Apparel & Fashion",
+  "identity": { "variantLabel": "Size" },
+  "theme": {
+    "colors": {
+      "cream": "#fbfaf8",
+      "sand": "#f1efeb",
+      "ink": "#1c1b1a",
+      "accent": "#41493c",
+      "accent-hover": "#2f362c",
+      "hairline": "#e4e1da"
+    },
+    "tokens": {
+      "radius-btn": "3px",
+      "radius-card": "6px",
+      "radius-control": "6px",
+      "track-luxe": "0.14em",
+      "weight-display": "500",
+      "section-y": "5rem",
+      "section-y-md": "7rem"
+    },
+    "fonts": {
+      "body": "'Manrope', system-ui, sans-serif",
+      "display": "'Manrope', system-ui, sans-serif",
+      "googleFamilies": ["Manrope:wght@400;500;700"]
+    },
+    "motion": "full"
+  },
+  "layout": { "home": "catalog" },
+  "features": { "reviews": true },
+  "categories": ["New Arrivals", "Tops", "Bottoms", "Outerwear"]
+}

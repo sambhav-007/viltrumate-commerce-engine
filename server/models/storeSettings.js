@@ -27,6 +27,20 @@ const themeSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Layout variants: which section composition each page renders (see
+// client/src/storefront/pages/Home.js LAYOUTS). Additive — future pages
+// (plp, pdp) get their own key.
+const layoutSchema = new mongoose.Schema(
+  {
+    home: {
+      type: String,
+      enum: ["editorial", "catalog", "minimal"],
+      default: "editorial",
+    },
+  },
+  { _id: false }
+);
+
 // Payment configuration consumed by the client payment registry.
 const paymentSchema = new mongoose.Schema(
   {
@@ -88,6 +102,7 @@ const storeSettingsSchema = new mongoose.Schema(
     variantLabel: { type: String, default: "" },
     // Nested configuration
     theme: { type: themeSchema, default: () => ({}) },
+    layout: { type: layoutSchema, default: () => ({}) },
     payment: { type: paymentSchema, default: () => ({}) },
     seo: { type: seoSchema, default: () => ({}) },
     features: { type: featuresSchema, default: () => ({}) },

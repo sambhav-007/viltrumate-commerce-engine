@@ -1,0 +1,32 @@
+{
+  "name": "Jewelry",
+  "identity": { "variantLabel": "Size" },
+  "theme": {
+    "colors": {
+      "cream": "#fcfaf7",
+      "sand": "#f3efe8",
+      "ink": "#181614",
+      "accent": "#9a7b4f",
+      "accent-hover": "#7f6440",
+      "hairline": "#e6dfd3"
+    },
+    "tokens": {
+      "radius-btn": "0px",
+      "radius-card": "0px",
+      "radius-control": "0px",
+      "track-luxe": "0.26em",
+      "weight-display": "400",
+      "section-y": "7rem",
+      "section-y-md": "9.5rem"
+    },
+    "fonts": {
+      "body": "'Jost', system-ui, sans-serif",
+      "display": "'Cormorant Garamond', Georgia, serif",
+      "googleFamilies": ["Jost:wght@300;400;500", "Cormorant+Garamond:wght@400;500;600"]
+    },
+    "motion": "full"
+  },
+  "layout": { "home": "minimal" },
+  "features": { "reviews": true },
+  "categories": ["Rings", "Earrings", "Necklaces", "Bracelets"]
+}

@@ -81,6 +81,8 @@ const Settings = () => {
       },
     });
   const setMotion = (v) => setS({ ...s, theme: { ...theme, motion: v } });
+  const layout = (s && s.layout) || {};
+  const setLayout = (k, v) => setS({ ...s, layout: { ...layout, [k]: v } });
   const setSeo = (k, v) => setS({ ...s, seo: { ...seo, [k]: v } });
   const setFeature = (k, v) =>
     setS({ ...s, features: { ...features, [k]: v } });
@@ -110,6 +112,7 @@ const Settings = () => {
       variantLabel: s.variantLabel || "",
       // Nested config travels as JSON (multipart form) and is parsed server-side.
       theme: JSON.stringify(s.theme || {}),
+      layout: JSON.stringify(s.layout || {}),
       payment: JSON.stringify(s.payment || {}),
       seo: JSON.stringify(s.seo || {}),
       features: JSON.stringify(s.features || {}),
@@ -253,6 +256,16 @@ const Settings = () => {
               >
                 <option value="full">Full (default animations)</option>
                 <option value="reduced">Reduced (minimal animation)</option>
+              </Select>
+            </Field>
+            <Field label="Homepage layout">
+              <Select
+                value={layout.home || "editorial"}
+                onChange={(e) => setLayout("home", e.target.value)}
+              >
+                <option value="editorial">Editorial (brand-first)</option>
+                <option value="catalog">Catalog (product-first)</option>
+                <option value="minimal">Minimal (lookbook)</option>
               </Select>
             </Field>
           </Section>
