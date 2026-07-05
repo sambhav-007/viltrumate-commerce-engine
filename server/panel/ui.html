@@ -60,7 +60,16 @@
   .stat-row button { padding: 6px 0; background: #fff; color: var(--danger); border: 1px solid var(--line); }
   hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
   /* dashboard */
-  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+  .badge { display: inline-block; border-radius: 99px; padding: 1px 8px; font-size: 11px; margin-left: 6px; }
+  .badge.up-to-date { background: #ecfdf5; color: #047857; }
+  .badge.migration-required { background: #fffbeb; color: var(--amber); }
+  .badge.update-failed { background: #fef2f2; color: var(--danger); }
+  .badge.unknown { background: #f5f5f4; color: var(--muted); }
+  .wizard-steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .wstep { flex: 1; min-width: 90px; text-align: center; padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted); background: #fff; }
+  .wstep.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .wstep.done { border-color: #047857; color: #047857; }
   .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
   .kpi .n { font-size: 30px; font-weight: 700; }
   .kpi .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -175,8 +184,8 @@ function renderList() {
   $("storeList").innerHTML = stores
     .map(
       (s) => `<div class="store-item ${current === s.id ? "active" : ""}" onclick="openStore('${s.id}')">
-        <div><b>${esc(s.name || s.id)}</b>${s.industry ? `<span class="pill">${esc(s.industry)}</span>` : ""}</div>
-        <div class="id">${esc(s.db || s.id)}${s.source === "fleet" ? " · fleet" : ""}</div>
+        <div><b>${esc(s.name || s.id)}</b>${s.industry ? `<span class="pill">${esc(s.industry)}</span>` : ""}${s.updateState && s.updateState !== "up-to-date" && s.updateState !== "unknown" ? `<span class="badge ${esc(s.updateState)}">●</span>` : ""}</div>
+        <div class="id">${esc(s.db || s.id)}${s.source === "fleet" ? " · fleet" : ""}${s.currentVersion ? " · v" + esc(s.currentVersion) : ""}</div>
       </div>`
     )
     .join("") || '<p class="muted">No stores yet.</p>';
@@ -199,7 +208,26 @@ async function showDashboard() {
   <div class="kpis">
     <div class="kpi"><div class="n">${d.totalStores}</div><div class="l">Total stores</div></div>
     <div class="kpi"><div class="n">${d.activeStores}</div><div class="l">Active stores</div></div>
-    <div class="kpi"><div class="n">${inds.length}</div><div class="l">Industries</div></div>
+    <div class="kpi"><div class="n">v${esc(d.platformVersion || "—")}</div><div class="l">Latest VCE version</div></div>
+    <div class="kpi"><div class="n" style="${(d.storesNeedingUpdate || []).length ? "color:var(--amber)" : ""}">${(d.storesNeedingUpdate || []).length}</div><div class="l">Stores needing update</div></div>
+  </div>
+  <div class="card"><h2>Stores requiring updates</h2>
+    ${(d.storesNeedingUpdate || []).length ? `<table class="mini"><thead><tr><th>Store</th><th>Version</th><th>Pending</th><th>State</th><th></th></tr></thead>
+      <tbody>${d.storesNeedingUpdate.map((s) => `<tr>
+        <td><b>${esc(s.name || s.id)}</b></td><td>v${esc(s.currentVersion || "—")} → v${esc(d.platformVersion)}</td>
+        <td>${s.pending} migration(s)</td><td><span class="badge ${esc(s.state)}">${esc(s.state)}</span></td>
+        <td><a href="#" onclick="openStore('${s.id}');return false">open</a></td></tr>`).join("")}</tbody></table>`
+      : '<p class="muted">✅ Every store is on the latest VCE version.</p>'}
+  </div>
+  ${(d.failedUpdates || []).length ? `<div class="card"><h2>Failed updates</h2>
+    <table class="mini"><thead><tr><th>When</th><th>Store</th><th>Migration</th><th>Error</th></tr></thead>
+    <tbody>${d.failedUpdates.map((m) => `<tr><td>${fmtTime(m.timestamp)}</td><td>${esc(m.storeId)}</td>
+      <td>v${esc(m.migration)}</td><td class="muted">${esc(m.error || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
+  <div class="card"><h2>Migration history</h2>
+    ${(d.migrationHistory || []).length ? `<table class="mini"><thead><tr><th>When</th><th>Store</th><th>Migration</th><th>Result</th><th>Duration</th></tr></thead>
+      <tbody>${d.migrationHistory.map((m) => `<tr><td>${fmtTime(m.timestamp)}</td><td>${esc(m.storeId)}</td>
+        <td>v${esc(m.migration)}</td><td><span class="status ${m.result === "success" ? "active" : "error"}">${esc(m.result)}</span></td>
+        <td>${m.duration}ms</td></tr>`).join("")}</tbody></table>` : '<p class="muted">No migrations run yet.</p>'}
   </div>
   <div class="card"><h2>Stores by industry</h2>
     ${inds.length ? inds.map(([k, n]) => `
@@ -300,21 +328,25 @@ const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsap
 const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
 const LOCKS = ["identity", "theme", "layout", "payment", "features", "seo", "stats", "content"];
 const COLORS = ["cream", "sand", "card", "ink", "muted", "accent", "accent-hover", "hairline"];
-const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Deployment", "Security"];
+const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Deployment", "Updates", "Security"];
 let deployValidation = null;
+let storeMigrations = [], updateCheck = null, wizardStep = 0, wizardBackup = false, wizardResult = null;
 
 async function openStore(id) {
   current = id; renderList(); $("navDash").classList.remove("active");
   $("main").innerHTML = '<p class="muted">Loading store…</p>';
   try {
-    const [s, dep, act] = await Promise.all([
+    const [s, dep, act, mig] = await Promise.all([
       api(`/stores/${id}/settings`),
       api(`/stores/${id}/deployments`).catch(() => ({ deployments: [] })),
       api(`/activity?storeId=${encodeURIComponent(id)}&limit=20`).catch(() => ({ activity: [] })),
+      api(`/stores/${id}/migrations`).catch(() => ({ migrations: [] })),
     ]);
     S = s.settings; storeMeta = s.store;
     storeDeployments = dep.deployments || [];
     storeActivity = act.activity || [];
+    storeMigrations = mig.migrations || [];
+    updateCheck = null; wizardStep = 0; wizardBackup = false; wizardResult = null;
     renderEditor(id);
   } catch (e) {
     $("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`;
@@ -335,6 +367,8 @@ function renderEditor(id) {
   <div class="row" style="justify-content:space-between; margin-bottom:10px">
     <div><b style="font-size:17px">${esc(S.storeName || meta.name || id)}</b>
       ${meta.status ? `<span class="status ${esc(meta.status)}">${esc(meta.status)}</span>` : ""}
+      ${meta.currentVersion ? `<span class="pill">VCE v${esc(meta.currentVersion)}</span>` : ""}
+      ${meta.updateState && meta.updateState !== "up-to-date" ? `<span class="badge ${esc(meta.updateState)}">${esc(meta.updateState)}</span>` : ""}
       <span class="muted"> · ${esc(meta.db || "")} · source ${esc(meta.source || "")}${meta.clientUrl ? ` · <a href="${esc(meta.clientUrl)}" target="_blank">storefront</a>` : ""}</span></div>
     <button onclick="save('${id}')">Save all changes</button>
   </div>
@@ -457,6 +491,23 @@ function renderEditor(id) {
     <div class="card"><h2>Deployment history</h2><div id="depTable">${renderStoreDeployments(id)}</div></div>
   </div>
 
+  <!-- UPDATES -->
+  <div class="tab-panel" data-tab="Updates">
+    <div class="card"><h2>Version</h2>
+      <div class="kv">
+        <span class="k">Installed VCE version</span><span><b>v${esc(meta.currentVersion || "—")}</b> ${meta.updateState ? `<span class="badge ${esc(meta.updateState)}">${esc(meta.updateState)}</span>` : ""}</span>
+        <span class="k">Previous version</span><span>${meta.previousVersion ? "v" + esc(meta.previousVersion) : "—"}</span>
+        <span class="k">Last updated</span><span>${meta.lastUpdated ? fmtTime(meta.lastUpdated) : "—"}</span>
+        <span class="k">Pending migrations</span><span>${(meta.pendingMigrations || []).length ? (meta.pendingMigrations || []).map((v) => "v" + esc(v)).join(", ") : "none"}</span>
+      </div>
+      ${(meta.versionHistory || []).length ? `<label style="margin-top:12px">Previous versions</label><div class="muted">${(meta.versionHistory || []).map((h) => "v" + esc(h.version) + " (" + fmtTime(h.at) + ")").join(" · ")}</div>` : ""}
+    </div>
+    <div class="card"><h2>Update Wizard</h2>
+      <div id="wizard"></div>
+    </div>
+    <div class="card"><h2>Migration history</h2><div id="migTable">${renderMigrations(storeMigrations)}</div></div>
+  </div>
+
   <!-- SECURITY -->
   <div class="tab-panel" data-tab="Security">
     <div class="locknote">Locked sections are hidden from the client's admin and write-protected in the store API — only this panel changes them.</div>
@@ -479,6 +530,7 @@ function renderEditor(id) {
     const sel = $("dp_provider");
     if (sel) sel.innerHTML = (d.providers || ["local"]).map((p) => `<option>${esc(p)}</option>`).join("");
   }).catch(() => {});
+  renderWizard(id);
 }
 
 const statRow = (st, i) => `
@@ -583,6 +635,104 @@ async function setDepStatus(id, depId, status) {
     $("depTable").innerHTML = renderStoreDeployments(id);
     toast(`✅ ${status}`);
   } catch (e) { toast("❌ " + e.message); }
+}
+
+/* ---------- update wizard (Phase Λ) ---------- */
+const WIZARD_STEPS = ["Validate", "Backup", "Preview", "Run", "Verify", "Complete"];
+
+function renderMigrations(items) {
+  if (!items || !items.length) return '<p class="muted">No migrations run on this store yet.</p>';
+  return `<table class="mini"><thead><tr><th>When</th><th>Migration</th><th>From→To</th><th>Result</th><th>Duration</th><th>Operator</th></tr></thead>
+    <tbody>${items.map((m) => `<tr>
+      <td>${fmtTime(m.timestamp)}</td><td>v${esc(m.migration)}</td>
+      <td>v${esc(m.fromVersion || "—")}→v${esc(m.toVersion || "—")}</td>
+      <td><span class="status ${m.result === "success" ? "active" : "error"}">${esc(m.result)}</span>${m.error ? ` <span class="muted">${esc(m.error)}</span>` : ""}</td>
+      <td>${m.duration}ms</td><td>${esc(m.operator)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function wizardBar() {
+  return `<div class="wizard-steps">${WIZARD_STEPS.map((s, i) =>
+    `<div class="wstep ${i === wizardStep ? "active" : i < wizardStep ? "done" : ""}">${i + 1}. ${s}</div>`).join("")}</div>`;
+}
+
+function renderWizard(id) {
+  const el = $("wizard"); if (!el) return;
+  const uc = updateCheck;
+  let body = "";
+  if (wizardStep === 0) {
+    body = `<p class="muted">Step 1 — validate this store and detect available updates. Nothing changes.</p>
+      <button onclick="wizValidate('${id}')">Validate &amp; check for updates</button>`;
+    if (uc) body += renderCheckResult(uc, id);
+  } else if (wizardStep === 1) {
+    body = `<p><b>Step 2 — Backup reminder.</b> Migrations modify the store's database.
+      Take a backup first: <code>node scripts/backupDb.js</code> (see docs/DEPLOYMENT.md).</p>
+      <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="wz_backup" ${wizardBackup ? "checked" : ""} onchange="wizardBackup=this.checked"/> I have taken a backup (or accept the risk)</label>
+      <div style="margin-top:12px" class="row"><button class="secondary" onclick="wizGo('${id}',0)">Back</button>
+        <button onclick="wizToPreview('${id}')">Continue</button></div>`;
+  } else if (wizardStep === 2) {
+    const pend = (uc && uc.pending) || [];
+    body = `<p><b>Step 3 — Preview changes.</b> ${pend.length} migration(s) will run to bring the store to <b>v${esc(uc.latestVersion)}</b>:</p>
+      <ul class="log">${pend.map((m) => `<li><span>▸ <b>v${esc(m.version)}</b> — ${esc(m.description)}</span></li>`).join("")}</ul>
+      ${renderCompat(uc.compatibility)}
+      <div style="margin-top:12px" class="row"><button class="secondary" onclick="wizGo('${id}',1)">Back</button>
+        <button id="wz_run" onclick="wizRun('${id}')" ${uc.compatibility && !uc.compatibility.ok ? "disabled title='compatibility failed'" : ""}>Confirm &amp; run migrations</button></div>
+      <p class="muted" style="margin-top:8px">Explicit confirmation required — this is not one-click.</p>`;
+  } else if (wizardStep === 3) {
+    body = `<p class="muted">Running migrations…</p>`;
+  } else if (wizardStep === 4 || wizardStep === 5) {
+    const r = wizardResult || {};
+    const ok = !r.error;
+    body = `<p><b>Step ${wizardStep === 4 ? "5 — Verify" : "6 — Complete"}.</b></p>
+      <div class="${ok ? "" : "locknote"}"><b>${ok ? "✅ " + (r.success || "Update complete") : "❌ " + (r.error || "Update failed")}</b>
+      ${r.from ? `<div class="muted">${esc(r.from)} → ${esc(r.to)}</div>` : ""}</div>
+      <ul class="log">${(r.applied || []).map((a) => `<li><span>${a.result === "success" ? "✅" : "❌"} <b>v${esc(a.version)}</b> — ${esc(a.description)} <span class="muted">(${a.duration}ms)</span>${a.error ? ` — ${esc(a.error)}` : ""}</span></li>`).join("")}</ul>
+      <button onclick="wizGo('${id}',0)">Done</button>`;
+  }
+  el.innerHTML = wizardBar() + body;
+}
+
+function renderCheckResult(uc, id) {
+  if (uc.upToDate) return `<div style="margin-top:12px"><span class="badge up-to-date">up-to-date</span> Store is on the latest VCE version (v${esc(uc.latestVersion)}). Nothing to do.</div>`;
+  return `<div style="margin-top:12px"><span class="badge migration-required">migration-required</span>
+    v${esc(uc.currentVersion || "—")} → v${esc(uc.latestVersion)} · ${(uc.pending || []).length} migration(s).
+    ${renderCompat(uc.compatibility)}
+    <div style="margin-top:10px"><button onclick="wizGo('${id}',1)" ${uc.compatibility && !uc.compatibility.ok ? "disabled" : ""}>Start update →</button></div></div>`;
+}
+
+function renderCompat(c) {
+  if (!c) return "";
+  const icon = (s) => (s === "ok" ? "✅" : s === "warn" ? "⚠️" : "❌");
+  return `<div style="margin-top:10px"><div class="muted">Compatibility ${c.ok ? "passed" : "FAILED — update blocked"}:</div>
+    <ul class="log">${(c.checks || []).map((x) => `<li><span>${icon(x.status)} <b>${esc(x.name)}</b>${x.detail ? " — " + esc(x.detail) : ""}</span></li>`).join("")}</ul></div>`;
+}
+
+function wizGo(id, step) { wizardStep = step; if (step === 0) { updateCheck = null; wizardResult = null; } renderWizard(id); }
+function wizToPreview(id) { if (!wizardBackup) return toast("Please confirm the backup step first"); wizardStep = 2; renderWizard(id); }
+
+async function wizValidate(id) {
+  try { updateCheck = await api(`/stores/${id}/update/check`); renderWizard(id); }
+  catch (e) { toast("❌ " + e.message); }
+}
+
+async function wizRun(id) {
+  wizardStep = 3; renderWizard(id);
+  try {
+    wizardResult = await api(`/stores/${id}/update`, { method: "POST", body: JSON.stringify({ confirm: true }) });
+    wizardStep = 4;
+  } catch (e) {
+    wizardResult = { error: e.message, applied: [] };
+    wizardStep = 4;
+  }
+  // refresh store meta + migration history + activity
+  try {
+    const [s, mig] = await Promise.all([api(`/stores/${id}/settings`), api(`/stores/${id}/migrations`)]);
+    storeMeta = s.store; storeMigrations = mig.migrations || [];
+    stores = (await api("/stores")).stores; renderList();
+  } catch (_) {}
+  renderEditor(id);
+  showTab("Updates"); wizardStep = 4; renderWizard(id);
+  const mt = $("migTable"); if (mt) mt.innerHTML = renderMigrations(storeMigrations);
+  toast(wizardResult.error ? "❌ " + wizardResult.error : "✅ " + (wizardResult.success || "Updated"), 6000);
 }
 
 async function save(id) {

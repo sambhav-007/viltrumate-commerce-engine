@@ -46,6 +46,15 @@ const { getProvider, listProviders } = require("./platform/deploy/registry");
 const { validateDeployment } = require("./platform/deploy/validateSecrets");
 const { bumpVersion } = require("./platform/deploy/version");
 const { zipSync } = require("./platform/deploy/zip");
+const { list: listMigrations, pendingFor, cmp, CURRENT_VCE_VERSION } = require("./platform/migrations");
+const { checkCompatibility } = require("./platform/migrations/compatibility");
+
+// The VCE update state of a platform Store doc, from its VCE version.
+function updateStateFor(doc) {
+  if (!doc || !doc.currentVersion) return "unknown";
+  if (doc.lastUpdateStatus === "failed") return "update-failed";
+  return pendingFor(doc.currentVersion).length ? "migration-required" : "up-to-date";
+}
 
 const PORT = Number(process.env.PANEL_PORT) || 8100;
 const KEY = process.env.PANEL_KEY || crypto.randomBytes(18).toString("base64url");
@@ -101,6 +110,12 @@ async function resolveStore(id) {
           clientUrl: doc.domain || "",
           status: doc.status,
           currentVersion: doc.currentVersion || "",
+          previousVersion: doc.previousVersion || "",
+          lastUpdated: doc.lastUpdated,
+          pendingMigrations: pendingFor(doc.currentVersion).map((m) => m.version),
+          lastUpdateStatus: doc.lastUpdateStatus || "",
+          versionHistory: doc.versionHistory || [],
+          updateState: updateStateFor(doc),
           notes: doc.notes || "",
           lockedSections: doc.lockedSections || [],
           createdAt: doc.createdAt,
@@ -175,6 +190,14 @@ app.get("/api/git-commit", (req, res) => res.json({ commit: gitCommit() }));
 // GET /api/deploy/providers -> registered deployment providers
 app.get("/api/deploy/providers", (req, res) => res.json({ providers: listProviders() }));
 
+// GET /api/platform -> current VCE platform version + migration catalog
+app.get("/api/platform", (req, res) =>
+  res.json({
+    version: CURRENT_VCE_VERSION,
+    migrations: listMigrations().map((m) => ({ version: m.version, description: m.description })),
+  })
+);
+
 // GET /api/dashboard -> agency overview (platform db; fleet-count fallback)
 app.get("/api/dashboard", async (req, res) => {
   try {
@@ -195,20 +218,37 @@ app.get("/api/dashboard", async (req, res) => {
         byIndustry,
         recentActivity: [],
         latestDeployments: [],
+        platformVersion: CURRENT_VCE_VERSION,
+        storesNeedingUpdate: [],
+        migrationHistory: [],
+        failedUpdates: [],
       });
     }
-    const [stores, recentActivity, latestDeployments] = await Promise.all([
+    const [stores, recentActivity, latestDeployments, migrationHistory] = await Promise.all([
       p.Store.find({}),
       p.ActivityLog.find({}).sort({ timestamp: -1 }).limit(12),
       p.Deployment.find({}).sort({ createdAt: -1 }).limit(6),
+      p.MigrationLog.find({}).sort({ timestamp: -1 }).limit(8),
     ]);
     const byIndustry = {};
     let active = 0;
+    const needingUpdate = [];
     stores.forEach((s) => {
       if (s.status === "active") active++;
       const ind = s.industry || "unspecified";
       byIndustry[ind] = (byIndustry[ind] || 0) + 1;
+      const state = updateStateFor(s);
+      if (state === "migration-required" || state === "update-failed") {
+        needingUpdate.push({
+          id: s.storeId,
+          name: s.name,
+          currentVersion: s.currentVersion || "",
+          pending: pendingFor(s.currentVersion).length,
+          state,
+        });
+      }
     });
+    const failedUpdates = migrationHistory.filter((m) => m.result === "failed");
     res.json({
       platform: true,
       totalStores: stores.length,
@@ -216,6 +256,10 @@ app.get("/api/dashboard", async (req, res) => {
       byIndustry,
       recentActivity,
       latestDeployments,
+      platformVersion: CURRENT_VCE_VERSION,
+      storesNeedingUpdate: needingUpdate,
+      migrationHistory,
+      failedUpdates,
     });
   } catch (err) {
     res.status(500).json({ error: `Dashboard failed: ${err.message}` });
@@ -291,6 +335,8 @@ app.get("/api/stores", async (req, res) => {
           domain: d.domain || "",
           clientUrl: d.domain || "",
           status: d.status,
+          currentVersion: d.currentVersion || "",
+          updateState: updateStateFor(d),
           source: "platform",
         });
       });
@@ -416,7 +462,9 @@ app.post("/api/stores", async (req, res) => {
       throw dbErr;
     }
 
-    // Mark active + record the successful provision.
+    // Mark active + record the successful provision. A fresh store is built
+    // with the latest schema, so it starts at the current VCE version with no
+    // pending migrations.
     await upsertStore({
       storeId: id,
       name: storeName,
@@ -425,6 +473,11 @@ app.post("/api/stores", async (req, res) => {
       databaseName: dbName,
       domain,
       status: "active",
+      currentVersion: CURRENT_VCE_VERSION,
+      previousVersion: "",
+      lastUpdated: new Date(),
+      pendingMigrations: [],
+      lastUpdateStatus: "success",
     });
     await logActivity({
       operator: operatorOf(req),
@@ -611,10 +664,13 @@ app.post("/api/stores/:id/deployments/package", async (req, res) => {
       return res.status(422).json({ error: "Deployment validation failed — fix the missing values", validation });
     }
 
-    // Version: bump from the latest recorded version (or the store's current).
+    // Package build version: an independent semver bumped from the latest
+    // package (NOT the store's VCE version). The VCE version the package ships
+    // is recorded separately as vceVersion.
     const latest = await p.Deployment.findOne({ storeId: id }).sort({ createdAt: -1 });
-    const base = (latest && latest.version) || ctx.store.currentVersion || "";
+    const base = (latest && latest.version) || "0.0.0";
     const version = bumpVersion(base, req.body.bump || "patch");
+    const vceVersion = ctx.store.currentVersion || CURRENT_VCE_VERSION;
     const commit = req.body.gitCommit || gitCommit();
     const environment = req.body.environment || "production";
     const providerName = req.body.provider || "local";
@@ -624,6 +680,7 @@ app.post("/api/stores/:id/deployments/package", async (req, res) => {
       settings: ctx.settings,
       manifest: ctx.manifest,
       version,
+      vceVersion,
       gitCommit: commit,
       environment,
       env: process.env,
@@ -635,6 +692,7 @@ app.post("/api/stores/:id/deployments/package", async (req, res) => {
       storeId: id,
       provider: providerName,
       version,
+      vceVersion,
       gitCommit: commit,
       environment,
       status: "generated",
@@ -645,12 +703,11 @@ app.post("/api/stores/:id/deployments/package", async (req, res) => {
       deployedBy: operatorOf(req),
       notes: req.body.notes || "",
     });
-    await p.Store.updateOne({ storeId: id }, { $set: { currentVersion: version } });
     await logActivity({
       operator: operatorOf(req),
       storeId: id,
       action: "Deployment package generated",
-      metadata: { version, provider: providerName, packagePath: result.packagePath, environment },
+      metadata: { version, vceVersion, provider: providerName, packagePath: result.packagePath, environment },
     });
 
     res.json({ success: `Package v${version} generated`, deployment, version, validation, files: result.files });
@@ -731,15 +788,13 @@ app.post("/api/stores/:id/deployments", async (req, res) => {
       provider: "manual",
       gitCommit: commit,
       version,
+      vceVersion: (store.platformDoc && store.platformDoc.currentVersion) || CURRENT_VCE_VERSION,
       environment,
       status: "completed",
       deployedAt: new Date(),
       notes,
       deployedBy: operatorOf(req),
     });
-    if (version) {
-      await p.Store.updateOne({ storeId: store.id }, { $set: { currentVersion: version } });
-    }
     await logActivity({
       operator: operatorOf(req),
       storeId: store.id,
@@ -749,6 +804,146 @@ app.post("/api/stores/:id/deployments", async (req, res) => {
     res.json({ success: "Deployment recorded", deployment });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* ======================= Update Manager (Phase Λ) ======================= */
+
+// GET /api/stores/:id/update/check -> version status + pending migrations + compat
+app.get("/api/stores/:id/update/check", async (req, res) => {
+  try {
+    const ctx = await deploymentContext(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Unknown store" });
+    const current = ctx.store.currentVersion || "";
+    const pending = pendingFor(current).map((m) => ({ version: m.version, description: m.description }));
+    const compatibility = checkCompatibility({ store: ctx.store, settings: ctx.settings });
+    res.json({
+      source: ctx.resolved.source,
+      currentVersion: current || null,
+      latestVersion: CURRENT_VCE_VERSION,
+      upToDate: current === CURRENT_VCE_VERSION,
+      pending,
+      compatibility,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/stores/:id/migrations -> the store's migration audit history
+app.get("/api/stores/:id/migrations", async (req, res) => {
+  const p = platform();
+  if (!p) return res.json({ migrations: [] });
+  const migrations = await p.MigrationLog.find({ storeId: req.params.id })
+    .sort({ timestamp: -1 })
+    .limit(50);
+  res.json({ migrations });
+});
+
+// POST /api/stores/:id/update -> run pending migrations (the Update Wizard's
+// "Run" step). Requires explicit confirm:true (never one-click). Aborts safely
+// if the compatibility check fails; on a migration failure it stops, advances
+// currentVersion only to the last successfully-applied migration, and records
+// the failure. Rollback is intentionally NOT performed.
+// body: { confirm:true, targetVersion? }
+app.post("/api/stores/:id/update", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  if (req.body.confirm !== true) {
+    return res.status(400).json({ error: "Explicit confirmation required (confirm:true)" });
+  }
+  const operator = operatorOf(req);
+  try {
+    const ctx = await deploymentContext(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Unknown store" });
+    if (ctx.resolved.source !== "platform") {
+      return res.status(400).json({ error: "Store is not registered in the platform database — updates require a platform store" });
+    }
+    const id = ctx.store.storeId;
+    const startVersion = ctx.store.currentVersion || "0.0.0";
+    const target = req.body.targetVersion || CURRENT_VCE_VERSION;
+    // Pending migrations up to and including the target version.
+    const toRun = pendingFor(startVersion).filter((m) => cmp(m.version, target) <= 0);
+    if (!toRun.length) {
+      return res.json({ success: "Already up to date", currentVersion: startVersion, applied: [] });
+    }
+
+    // Compatibility gate — abort safely without running anything.
+    const compatibility = checkCompatibility({ store: ctx.store, settings: ctx.settings });
+    if (!compatibility.ok) {
+      await logActivity({ operator, storeId: id, action: "Store update aborted", metadata: { reason: "compatibility", failed: compatibility.failed } });
+      return res.status(422).json({ error: "Compatibility check failed — update aborted", compatibility });
+    }
+
+    // Run all pending (in one store session), stopping at the first failure.
+    const applied = [];
+    let failure = null;
+    await withStoreDb(ctx.resolved.dbName, async () => {
+      const migCtx = { StoreSettings, mongoose, connection: mongoose.connection, store: ctx.store, log: () => {} };
+      for (const mig of toRun) {
+        const start = Date.now();
+        let result = "success", error = "";
+        try {
+          await mig.run(migCtx);
+          const ok = await mig.verification(migCtx);
+          if (!ok) { result = "failed"; error = "verification returned false"; }
+        } catch (e) {
+          result = "failed";
+          error = e.message;
+        }
+        applied.push({ version: mig.version, description: mig.description, result, error, duration: Date.now() - start });
+        if (result === "failed") { failure = { version: mig.version, error }; break; }
+      }
+    });
+
+    // Persist migration logs + activity, tracking the last good version.
+    let lastGood = startVersion;
+    for (const a of applied) {
+      await p.MigrationLog.create({
+        operator, storeId: id, migration: a.version, description: a.description,
+        fromVersion: lastGood, toVersion: a.version, duration: a.duration,
+        result: a.result, error: a.error,
+      });
+      await logActivity({
+        operator, storeId: id,
+        action: a.result === "success" ? "Migration completed" : "Migration failed",
+        metadata: { migration: a.version, duration: a.duration, result: a.result, error: a.error },
+      });
+      if (a.result === "success") lastGood = a.version;
+    }
+
+    const now = new Date();
+    const status = failure ? "failed" : "success";
+    await p.Store.updateOne(
+      { storeId: id },
+      {
+        $set: {
+          currentVersion: lastGood,
+          previousVersion: startVersion,
+          lastUpdated: now,
+          pendingMigrations: pendingFor(lastGood).map((m) => m.version),
+          lastUpdateStatus: status,
+        },
+        $push: { versionHistory: { version: startVersion, at: now } },
+      }
+    );
+    await logActivity({
+      operator, storeId: id,
+      action: failure ? "Store update failed" : "Store updated",
+      metadata: { from: startVersion, to: lastGood },
+    });
+
+    return res.status(failure ? 500 : 200).json({
+      [failure ? "error" : "success"]: failure
+        ? `Update failed at migration ${failure.version}: ${failure.error}`
+        : `Store updated ${startVersion} → ${lastGood}`,
+      from: startVersion,
+      to: lastGood,
+      applied,
+      compatibility,
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Update failed: ${err.message}` });
   }
 });
 

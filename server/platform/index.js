@@ -43,6 +43,7 @@ function platform() {
     Operator: conn.model("Operator", schemas.operatorSchema),
     ActivityLog: conn.model("ActivityLog", schemas.activityLogSchema),
     Deployment: conn.model("Deployment", schemas.deploymentSchema),
+    MigrationLog: conn.model("MigrationLog", schemas.migrationLogSchema),
   };
   return models;
 }

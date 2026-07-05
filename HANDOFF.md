@@ -65,6 +65,20 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 - **Panel UI** — the **Deployment** tab (replaces Operations): current version, provider/bump/env picker, Validate + Generate, per-version download links, status-advance buttons, history table. New endpoints: `GET /api/deploy/providers`, `GET …/deploy/validate`, `POST …/deployments/package`, `GET …/deployments/:depId/package`, `POST …/deployments/:depId/status` (legacy `POST …/deployments` kept as a manual record, provider `manual`).
 - **Verified:** 25/25 end-to-end on an isolated platform + throwaway store DB (provider registry, provisioning, validation ok-path, package generation + 8 files on disk, record fields incl. healthcheck/rollback, **valid zip download**, status timeline started→completed w/ deployedAt, activity timeline, minor-bump versioning + platform `currentVersion` persistence, **invalid deployment refused 422 with no package written**, history). Module unit tests (version/validation/builder/zip) passed; zip validated via PowerShell Expand-Archive; no secrets in non-env files. Test DBs dropped, package dir + manifest removed, fleet.json restored. Browser DOM pass still recommended.
 
+**This session (Phase Λ — Store Versioning & Update Manager):**
+- **VCE platform version** — defined by the migration set: the highest migration version IS `CURRENT_VCE_VERSION` (currently **1.2.0**). Every store tracks which VCE version it runs; every deployment records the VCE version (`Deployment.vceVersion`).
+- **Migration framework** (`server/platform/migrations/`) — one file per migration `<version>-<slug>.js` exporting `{ version, description, run(ctx), verification(ctx), rollback(ctx) }`; `index.js` loader (`list/latestVersion/pendingFor/cmp/CURRENT_VCE_VERSION`). Shipped: `1.0.1-add-theme-token`, `1.1.0-add-inventory`, `1.2.0-add-coupons` (idempotent backfills; no-ops on current stores). **Rule: never edit a shipped migration; always add a new one.** `rollback()` is a placeholder (rollback intentionally NOT implemented).
+- **Store version tracking** — Store schema gains `currentVersion` (now the **VCE version**, set to `CURRENT_VCE_VERSION` at provision), `previousVersion`, `lastUpdated`, `pendingMigrations`, `lastUpdateStatus`, `versionHistory[]`. (Deployment **package** build versions live on Deployment records; package generation no longer writes `Store.currentVersion` — it stamps `Deployment.vceVersion` instead.)
+- **Update Checker** — per-store `updateState`: `up-to-date` / `migration-required` / `update-failed` / `unknown`, surfaced in the store list + dashboard.
+- **Update Wizard** (Updates tab) — 6 explicit steps (Validate → Backup reminder → Preview → Run → Verify → Complete), **never one-click**; `POST …/update` requires `confirm:true`.
+- **Compatibility checks** (`migrations/compatibility.js`) — feature flags / theme / payment / database schema / required env; a failed check **aborts safely** (HTTP 422, nothing runs).
+- **Migration log** — new platform `migrationlogs` collection: `{ operator, storeId, migration, description, fromVersion, toVersion, duration, result, error }`; each migration also emits an activity event (Migration completed/failed, Store updated/failed/aborted). On a mid-run failure the update stops and advances `currentVersion` only to the last successful migration (no rollback).
+- **Dashboard widgets** — latest VCE version, stores-needing-update (count + list), migration history, failed updates.
+- **Version history** (Updates tab) — installed/previous version, pending migrations, previous-versions list, and the store's migration history table.
+- **Rollback** — still NOT implemented by design; records carry enough metadata to add it later.
+- **Endpoints:** `GET /api/platform`, `GET …/update/check`, `POST …/update`, `GET …/migrations`; dashboard extended.
+- **Verified:** 30/30 end-to-end on an isolated platform + throwaway store DB (platform version + 3-migration catalog, fresh store starts at 1.2.0 up-to-date, deployment stamps vceVersion, simulated old store → update detection + dashboard/list state, **confirm required (400)**, migration run 1.0.0→1.2.0 with 3 successes + durations, post-update up-to-date, previousVersion/versionHistory/lastUpdated, 3 migration-log entries w/ operator+from/to, dashboard migration history, **compatibility abort 422 with no migrations run and version unchanged**). Migration-loader unit tests passed. Test DBs dropped, package dir + manifest removed, fleet.json restored. Browser DOM pass still recommended.
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -99,6 +113,9 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Deployment package (env/manifest/healthcheck/nginx/startup/secrets + zip download) | ✅ verified (zip validated) |
 | Secrets validation (blocks invalid deployments) + semver versioning | ✅ verified |
 | Deployment rollback | 🔲 not implemented by design — records carry rollback metadata for later |
+| Store versioning + Update Manager (migrations, wizard, compat checks, migration log) | ✅ 30/30 e2e-verified on isolated DB; browser DOM pass pending |
+| VCE platform version (`CURRENT_VCE_VERSION` = latest migration, currently 1.2.0) | ✅ verified |
+| Migration/update rollback | 🔲 not implemented by design — Store + MigrationLog carry metadata for later |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -150,4 +167,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Phase Κ — Deployment Engine (provider abstraction + Local/Manual package generator; env/manifest/healthcheck/nginx/startup/secrets package with zip download; secrets validation that blocks invalid deployments; semver versioning; expanded Deployment model with rollback metadata; Deployment tab). Follows Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._
+_Last updated: end of Phase Λ — Store Versioning & Update Manager (VCE platform version driven by a migration framework; per-store version tracking; Update Wizard with compatibility checks + migration audit log; dashboard update widgets; rollback metadata only). Follows Phase Κ — Deployment Engine and Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._

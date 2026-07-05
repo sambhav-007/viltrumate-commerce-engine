@@ -30,7 +30,19 @@ const storeSchema = new mongoose.Schema(
       enum: ["active", "inactive", "provisioning", "archived", "error"],
       default: "active",
     },
+    // VCE version tracking (Phase Λ). currentVersion is the VCE engine version
+    // the store runs (set to the platform version at provision, advanced by the
+    // Update Manager as migrations apply). Deployment package build versions live
+    // on the Deployment records, not here.
     currentVersion: { type: String, default: "" },
+    previousVersion: { type: String, default: "" },
+    lastUpdated: { type: Date, default: null },
+    pendingMigrations: { type: [String], default: [] },
+    lastUpdateStatus: { type: String, enum: ["", "success", "failed"], default: "" },
+    versionHistory: {
+      type: [new mongoose.Schema({ version: String, at: Date }, { _id: false })],
+      default: [],
+    },
     lockedSections: { type: [String], default: [] },
     notes: { type: String, default: "" },
   },
@@ -76,7 +88,8 @@ const deploymentSchema = new mongoose.Schema(
   {
     storeId: { type: String, required: true, index: true },
     provider: { type: String, default: "local" }, // which DeploymentProvider produced it
-    version: { type: String, default: "" }, // semver, assigned at generation
+    version: { type: String, default: "" }, // package build semver, assigned at generation
+    vceVersion: { type: String, default: "" }, // the VCE engine version this deployment ships (Phase Λ)
     gitCommit: { type: String, default: "" },
     environment: { type: String, default: "production" },
     status: {
@@ -95,4 +108,25 @@ const deploymentSchema = new mongoose.Schema(
   { timestamps: true } // createdAt = when the record/package was generated
 );
 
-module.exports = { storeSchema, operatorSchema, activityLogSchema, deploymentSchema };
+// Migration ledger (Phase Λ). One entry per migration attempt during a store
+// update — the audit trail of what ran, how long it took, and whether it worked.
+const migrationLogSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now, index: true },
+  operator: { type: String, default: "panel" },
+  storeId: { type: String, default: null, index: true },
+  migration: { type: String, required: true }, // migration version, e.g. "1.1.0"
+  description: { type: String, default: "" },
+  fromVersion: { type: String, default: "" },
+  toVersion: { type: String, default: "" },
+  duration: { type: Number, default: 0 }, // milliseconds
+  result: { type: String, enum: ["success", "failed", "skipped"], default: "success" },
+  error: { type: String, default: "" },
+});
+
+module.exports = {
+  storeSchema,
+  operatorSchema,
+  activityLogSchema,
+  deploymentSchema,
+  migrationLogSchema,
+};

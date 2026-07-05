@@ -82,8 +82,9 @@ Lockable: `identity, theme, layout, payment, features, seo, stats, content`.
 - **Store detail** is organised into tabs: **Overview** (platform metadata + per-store
   activity), **Appearance** (theme/typography/tokens/motion/layout), **Commerce** (payment),
   **Content** (identity/hero), **Features** (flags + trust stats), **Deployment** (current
-  version, generate/download package, deployment history — see below), **Security** (agency
-  locks). One "Save all changes" persists the settings tabs.
+  version, generate/download package, deployment history — see below), **Updates** (VCE version,
+  Update Wizard, migration history — see below), **Security** (agency locks). One "Save all
+  changes" persists the settings tabs.
 
 ## Deployment Engine (Phase Κ)
 
@@ -118,6 +119,40 @@ engine and panel never contain deployment logic.
 Deployment records (platform `deployments` collection): `provider`, `version`, `gitCommit`,
 `environment`, `status`, `packagePath`, `healthcheck`, `secretsChecklist`, `rollback`,
 `createdAt`, `deployedAt`, `deployedBy`, `notes`.
+
+## Update Manager (Phase Λ)
+
+Every client store is updatable from the panel. The **VCE platform version** is defined by the
+migration set in `server/platform/migrations/` — the highest migration version is the current
+VCE version (`CURRENT_VCE_VERSION`). Each store records which VCE version it runs.
+
+- **Migration framework:** one file per migration, `<version>-<slug>.js`, exporting
+  `{ version, description, run(ctx), verification(ctx), rollback(ctx) }`. `ctx` gives access to the
+  target store's `StoreSettings` (run against its own DB via `withStoreDb`). Migrations are
+  idempotent backfills. **Never edit a shipped migration — always add a new one.** `rollback()`
+  is a placeholder; rollback is intentionally not implemented.
+- **Store version fields:** `currentVersion` (the VCE version, set to the platform version at
+  provision), `previousVersion`, `lastUpdated`, `pendingMigrations`, `lastUpdateStatus`,
+  `versionHistory[]`. Deployment package build versions live on Deployment records; each
+  deployment also records `vceVersion`.
+- **Update state** (dashboard + store list badge): `up-to-date` / `migration-required` /
+  `update-failed` / `unknown`.
+- **Update Wizard** (Updates tab), 6 explicit steps — **never one-click**:
+  1. Validate (check version + pending migrations + compatibility)
+  2. Backup reminder (`node scripts/backupDb.js`)
+  3. Preview changes (the pending migrations)
+  4. Run migrations (`POST …/update` with `confirm:true`)
+  5. Verify (each migration's `verification()`)
+  6. Complete
+- **Compatibility checks** run before anything migrates: feature flags, theme, payment,
+  database schema, required env vars. A failed check **aborts safely** (HTTP 422, nothing runs).
+- **Migration log** (`migrationlogs` collection): `{ operator, storeId, migration, description,
+  fromVersion, toVersion, duration, result, error }`, plus activity events. On a mid-run failure
+  the update stops and advances `currentVersion` only to the last successful migration.
+- **Dashboard widgets:** latest VCE version, stores needing update, migration history, failed updates.
+
+Endpoints: `GET /api/platform` (version + migration catalog), `GET …/update/check`,
+`POST …/update`, `GET …/migrations`.
 
 ## How it works
 

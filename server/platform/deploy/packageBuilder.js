@@ -28,7 +28,7 @@ const renderEnv = (obj) =>
     .map(([k, v]) => `${k}=${v}`)
     .join("\n") + "\n";
 
-function buildPackage({ store, settings, manifest, version, gitCommit, environment, env = process.env }) {
+function buildPackage({ store, settings, manifest, version, vceVersion, gitCommit, environment, env = process.env }) {
   const infra = (manifest && manifest.infrastructure) || {};
   const mIdentity = (manifest && manifest.store && manifest.store.identity) || {};
 
@@ -97,6 +97,7 @@ function buildPackage({ store, settings, manifest, version, gitCommit, environme
   const healthcheck = {
     store: store.storeId,
     version,
+    vceVersion: vceVersion || "",
     api: `${apiUrl.replace(/\/$/, "")}/api/store-settings`,
     frontend: clientUrl,
     database: dbName,
@@ -120,6 +121,7 @@ function buildPackage({ store, settings, manifest, version, gitCommit, environme
   const deploymentJson = {
     store: { id: store.storeId, name: storeName, industry: store.industry || "" },
     version,
+    vceVersion: vceVersion || "",
     provider: "local",
     environment: environment || "production",
     gitCommit: gitCommit || "",
