@@ -290,6 +290,75 @@ textarea:focus-visible,
   100% { left: 100%; }
 }
 
+/* ---------- Admin action buttons (consistent gap, wraps cleanly) ---------- */
+/* Replaces space-x-2 on action cells so wrapped buttons keep vertical spacing
+   too (the old cramped look) and stack full-width on phones. */
+.admin-actions-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* ---------- Responsive admin tables: stack into cards on mobile ---------- */
+@media (max-width: 767px) {
+  .admin-table thead { display: none; }
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+  .admin-table tr {
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    margin: 0 0 0.85rem;
+    padding: 0.35rem 0;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(31, 31, 31, 0.04);
+  }
+  .admin-table tr:last-child { margin-bottom: 0; }
+  .admin-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    text-align: right;
+    border: 0;
+    padding: 0.55rem 0.9rem !important;
+  }
+  /* Label each value with its column header. */
+  .admin-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  /* Inline-edit inputs (variants) take the remaining width. */
+  .admin-table td > input,
+  .admin-table td > select,
+  .admin-table td > .admin-actions-wrap { flex: 1 1 auto; }
+  /* Actions stack full-width and easy to tap. */
+  .admin-table td.admin-actions { flex-direction: column; align-items: stretch; }
+  .admin-table td.admin-actions::before { text-align: left; }
+  .admin-table .admin-actions-wrap { flex-direction: column; }
+  .admin-table .admin-actions-wrap > * { width: 100%; }
+  /* Hide a cell on mobile when it has no useful standalone value. */
+  .admin-table td.admin-hide-sm { display: none; }
+  /* Empty-state / full-width rows: center, drop the label. */
+  .admin-table td[colspan] {
+    justify-content: center;
+    text-align: center;
+  }
+  .admin-table td[colspan]::before { content: none; }
+}
+
 /* ---------- Compat utilities (prebuilt Tailwind lacks these) ---------- */
 .space-x-7 > * + * { margin-left: 1.75rem; }
 .space-x-9 > * + * { margin-left: 2.25rem; }

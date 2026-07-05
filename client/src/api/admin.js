@@ -56,20 +56,34 @@ export const updateProduct = (id, obj) =>
   put(`/products/${id}`, form(obj), authForm());
 export const deleteProduct = (id) => del(`/products/${id}`, auth());
 
-/* ---- Shades ---- */
-export const getShadesByProduct = (productId) =>
-  get(`/shades/by-product/${productId}`);
-export const createShade = (obj) => post("/shades", form(obj), authForm());
-export const bulkCreateShades = (body) => post("/shades/bulk", body, auth());
-export const bulkUpdateShades = (body) => patch("/shades/bulk", body, auth());
-export const updateShade = (id, obj) =>
-  put(`/shades/${id}`, form(obj), authForm());
-export const deleteShade = (id) => del(`/shades/${id}`, auth());
-export const deleteShadeImage = (id, publicId) =>
+/* ---- Variants (purchasable unit; legacy: "shades") ---- */
+export const getVariantsByProduct = (productId) =>
+  get(`/variants/by-product/${productId}`);
+export const createVariant = (obj) => post("/variants", form(obj), authForm());
+export const bulkCreateVariants = (body) => post("/variants/bulk", body, auth());
+export const bulkUpdateVariants = (body) => patch("/variants/bulk", body, auth());
+export const updateVariant = (id, obj) =>
+  put(`/variants/${id}`, form(obj), authForm());
+export const deleteVariant = (id) => del(`/variants/${id}`, auth());
+export const deleteVariantImage = (id, publicId) =>
   axios
-    .delete(`${base}/shades/${id}/image`, { ...auth(), data: { publicId } })
+    .delete(`${base}/variants/${id}/image`, { ...auth(), data: { publicId } })
     .then(data)
     .catch(fail);
+
+// Back-compat aliases (old "shade" names).
+export const getShadesByProduct = getVariantsByProduct;
+export const createShade = createVariant;
+export const bulkCreateShades = bulkCreateVariants;
+export const bulkUpdateShades = bulkUpdateVariants;
+export const updateShade = updateVariant;
+export const deleteShade = deleteVariant;
+export const deleteShadeImage = deleteVariantImage;
+
+/* ---- Product CSV import ---- */
+export const previewProductImport = (csv) =>
+  post("/products/import/preview", { csv }, auth());
+export const runProductImport = (csv) => post("/products/import", { csv }, auth());
 
 /* ---- Banners ---- */
 export const getBanners = (all = true) =>
@@ -83,6 +97,13 @@ export const deleteBanner = (id) => del(`/banners/${id}`, auth());
 export const getAllReviews = () => get("/reviews", auth());
 export const approveReview = (id) => put(`/reviews/${id}/approve`, {}, auth());
 export const deleteReview = (id) => del(`/reviews/${id}`, auth());
+
+/* ---- Orders ---- */
+// query e.g. "?status=pending&limit=50&page=1"; response: { orders, total, page, limit }
+export const getOrders = (query = "") => get(`/orders${query}`, auth());
+export const getOrder = (id) => get(`/orders/${id}`, auth());
+export const updateOrderStatus = (id, status) =>
+  patch(`/orders/${id}/status`, { status }, auth());
 
 /* ---- Settings ---- */
 export const getSettings = () => get("/settings");

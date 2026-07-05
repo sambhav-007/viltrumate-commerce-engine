@@ -19,6 +19,7 @@ const links = [
   { path: "/admin/dashboard", label: "Dashboard" },
   { path: "/admin/dashboard/categories", label: "Categories" },
   { path: "/admin/dashboard/products", label: "Products" },
+  { path: "/admin/dashboard/orders", label: "Orders" },
   { path: "/admin/dashboard/banners", label: "Banners" },
   { path: "/admin/dashboard/reviews", label: "Reviews" },
   { path: "/admin/dashboard/settings", label: "Store Settings" },

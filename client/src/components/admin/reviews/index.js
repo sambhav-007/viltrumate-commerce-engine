@@ -56,7 +56,7 @@ const Reviews = () => {
           <Spinner />
         ) : (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-left">
                 <tr>
                   <th className="p-3">Product / Shade</th>
@@ -77,7 +77,7 @@ const Reviews = () => {
                 )}
                 {shown.map((r) => (
                   <tr key={r._id} className="border-t">
-                    <td className="p-3">
+                    <td className="p-3" data-label="Product">
                       <div className="font-medium text-gray-800">
                         {r.product ? r.product.name : "—"}
                       </div>
@@ -85,23 +85,28 @@ const Reviews = () => {
                         {r.shade ? r.shade.name : ""}
                       </div>
                     </td>
-                    <td className="p-3">{r.customerName}</td>
-                    <td className="p-3"><Stars n={r.rating} /></td>
-                    <td className="p-3 max-w-xs">{r.text}</td>
-                    <td className="p-3">
+                    <td className="p-3" data-label="Customer">{r.customerName}</td>
+                    <td className="p-3" data-label="Rating"><Stars n={r.rating} /></td>
+                    <td className="p-3 max-w-xs" data-label="Review">{r.text}</td>
+                    <td className="p-3" data-label="Status">
                       {r.approved ? (
                         <span className="text-green-600">Approved</span>
                       ) : (
                         <span className="text-yellow-600">Pending</span>
                       )}
                     </td>
-                    <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                      {!r.approved && (
-                        <Btn onClick={() => approve(r)}>Approve</Btn>
-                      )}
-                      <Btn variant="danger" onClick={() => remove(r)}>
-                        Delete
-                      </Btn>
+                    <td
+                      className="p-3 text-right whitespace-nowrap admin-actions"
+                      data-label="Actions"
+                    >
+                      <div className="admin-actions-wrap">
+                        {!r.approved && (
+                          <Btn onClick={() => approve(r)}>Approve</Btn>
+                        )}
+                        <Btn variant="danger" onClick={() => remove(r)}>
+                          Delete
+                        </Btn>
+                      </div>
                     </td>
                   </tr>
                 ))}

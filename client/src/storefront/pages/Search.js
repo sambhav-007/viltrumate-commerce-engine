@@ -3,10 +3,12 @@ import { Link, useLocation } from "react-router-dom";
 import Layout from "../Layout";
 import { search } from "../../api/shop";
 import { money } from "../format";
+import { useContent } from "../../config/content";
 
 const useQuery = () => new URLSearchParams(useLocation().search);
 
 const Search = () => {
+  const t = useContent();
   const q = useQuery().get("q") || "";
   const [res, setRes] = useState(null);
 
@@ -27,7 +29,7 @@ const Search = () => {
     <Layout>
       <div className="aura-container py-16 md:py-24">
         <div className="text-center mb-16">
-          <div className="eyebrow mb-3">Search</div>
+          <div className="eyebrow mb-3">{t("search.eyebrow")}</div>
           <h1 className="display-1">“{q}”</h1>
         </div>
 
@@ -35,18 +37,16 @@ const Search = () => {
           <p className="text-muted text-center py-12">Searching…</p>
         ) : empty ? (
           <div className="text-center py-12">
-            <p className="font-display text-2xl mb-3">Nothing found</p>
-            <p className="text-muted mb-8">
-              Try a shade name, product, or collection.
-            </p>
-            <Link to="/category" className="btn-outline">Browse Collections</Link>
+            <p className="font-display text-2xl mb-3">{t("search.empty.title")}</p>
+            <p className="text-muted mb-8">{t("search.empty.hint")}</p>
+            <Link to="/category" className="btn-outline">{t("search.empty.cta")}</Link>
           </div>
         ) : (
           <div className="space-y-12">
             {/* Shades first */}
             {(res.shades || []).length > 0 && (
               <section>
-                <h2 className="eyebrow mb-5">Shades</h2>
+                <h2 className="eyebrow mb-5">{t("search.section.variants")}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {res.shades.map((s) => (
                     <Link
@@ -81,7 +81,7 @@ const Search = () => {
 
             {(res.products || []).length > 0 && (
               <section>
-                <h2 className="eyebrow mb-5">Products</h2>
+                <h2 className="eyebrow mb-5">{t("search.section.products")}</h2>
                 <div className="flex flex-wrap gap-3">
                   {res.products.map((p) => (
                     <Link key={p._id} to={`/product/${p.slug}`} className="btn-outline">
@@ -94,7 +94,7 @@ const Search = () => {
 
             {(res.categories || []).length > 0 && (
               <section>
-                <h2 className="eyebrow mb-5">Categories</h2>
+                <h2 className="eyebrow mb-5">{t("search.section.categories")}</h2>
                 <div className="flex flex-wrap gap-3">
                   {res.categories.map((c) => (
                     <Link key={c._id} to={`/category/${c.slug}`} className="btn-outline">

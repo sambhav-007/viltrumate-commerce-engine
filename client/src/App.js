@@ -6,6 +6,8 @@ import { CartProvider } from "./context/CartContext";
 import AdminProtectedRoute from "./components/shop/auth/AdminProtectedRoute";
 import TopLoader from "./storefront/TopLoader";
 import ScrollToTop from "./storefront/ScrollToTop";
+import ThemeApplier from "./storefront/ThemeApplier";
+import SeoHead from "./storefront/SeoHead";
 
 // Storefront (customer-critical path, bundled eagerly)
 import Home from "./storefront/pages/Home";
@@ -25,9 +27,10 @@ import NotFound from "./storefront/pages/NotFound";
 const DashboardAdmin = lazy(() => import("./components/admin/dashboardAdmin"));
 const Categories = lazy(() => import("./components/admin/categories"));
 const Products = lazy(() => import("./components/admin/products"));
-const ShadeManager = lazy(() => import("./components/admin/shades"));
+const VariantManager = lazy(() => import("./components/admin/variants"));
 const Banners = lazy(() => import("./components/admin/banners"));
 const Reviews = lazy(() => import("./components/admin/reviews"));
+const Orders = lazy(() => import("./components/admin/orders"));
 const Settings = lazy(() => import("./components/admin/settings"));
 
 const AdminFallback = (
@@ -38,6 +41,8 @@ function App() {
   return (
     <SettingsProvider>
       <CartProvider>
+        <ThemeApplier />
+        <SeoHead />
         <TopLoader />
         <Router>
           <ScrollToTop />
@@ -66,11 +71,18 @@ function App() {
               <AdminProtectedRoute exact path="/admin/dashboard/products" component={Products} />
               <AdminProtectedRoute
                 exact
+                path="/admin/dashboard/products/:id/variants"
+                component={VariantManager}
+              />
+              {/* back-compat alias for the old /shades path */}
+              <AdminProtectedRoute
+                exact
                 path="/admin/dashboard/products/:id/shades"
-                component={ShadeManager}
+                component={VariantManager}
               />
               <AdminProtectedRoute exact path="/admin/dashboard/banners" component={Banners} />
               <AdminProtectedRoute exact path="/admin/dashboard/reviews" component={Reviews} />
+              <AdminProtectedRoute exact path="/admin/dashboard/orders" component={Orders} />
               <AdminProtectedRoute exact path="/admin/dashboard/settings" component={Settings} />
 
               <Route component={NotFound} />

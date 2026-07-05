@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "store": {
+    "id": "acme-glow",
+    "identity": {
+      "storeName": "Acme Glow",
+      "currencySymbol": "₹",
+      "locale": "en-IN",
+      "variantLabel": "Shade",
+      "whatsappNumber": "919876500000",
+      "contactEmail": "owner@acmeglow.com",
+      "contactPhone": "+91 98765 00000",
+      "address": "Bengaluru, India",
+      "instagramUrl": "",
+      "facebookUrl": "",
+      "heroHeading": "Glow, Your Way",
+      "heroSubheading": "Clean beauty for everyday radiance.",
+      "aboutUs": "Acme Glow crafts clean, considered beauty essentials."
+    },
+    "branding": {
+      "logoUrl": "",
+      "theme": {
+        "colors": {
+          "accent": "#b8336a",
+          "ink": "#1a1a1a",
+          "cream": "#faf6f2"
+        }
+      },
+      "seo": {
+        "metaTitle": "Acme Glow — Clean Beauty",
+        "metaDescription": "Clean, considered beauty essentials for everyday radiance.",
+        "ogImage": ""
+      }
+    },
+    "commerce": {
+      "features": {
+        "reviews": true,
+        "cod": true,
+        "whatsappCheckout": true,
+        "wishlist": false,
+        "coupons": false,
+        "inventory": false
+      },
+      "payment": {
+        "enabledProviders": ["whatsapp", "cod"],
+        "defaultProvider": "whatsapp"
+      }
+    },
+    "catalog": { "preset": "empty" },
+    "content": {}
+  },
+  "admin": {
+    "email": "owner@acmeglow.com",
+    "name": "Acme Glow Admin"
+  },
+  "infrastructure": {
+    "database": { "name": "vce-acme-glow" },
+    "cloudinary": { "folder": "vce/acme-glow" },
+    "api": { "url": "http://localhost:8000" },
+    "client": { "url": "http://localhost:3000" }
+  },
+
+  "_forwardCompatNotes": "Reserved for future phases (ignored by v1 provisioning, additive — never remove existing keys): store.domains[] for custom domains; tenancy{enabled,strategy} for tenant routing; admin -> admins[] for multiple admins; notifications.email{} for merchant email; commerce.payment.razorpay{} / .stripe{} for online gateways. Secrets NEVER belong in this file."
+}

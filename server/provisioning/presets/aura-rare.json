@@ -1,0 +1,26 @@
+{
+  "name": "Aura Rare demo catalog",
+  "description": "DEVELOPMENT ONLY — reproduces the original Aura Rare cosmetics catalog. Real client stores must not use this preset.",
+  "categories": ["Lipstick", "Nail Lacquer", "Nail Paint", "NPR Tissue", "Combo Packs"],
+  "namedVariants": [
+    "Passionate Red", "Hot Red", "Rusty Nude", "Maroon Bride", "Pink Blush",
+    "Coral Crush", "Mauve Muse", "Berry Bold", "Spiced Cocoa", "Rose Petal",
+    "Cherry Noir", "Terracotta", "Soft Plum", "Caramel", "Brick Lane",
+    "Wine Velvet", "Peach Nude", "Dusty Rose", "Crimson", "Toffee",
+    "Magenta", "Bare Beige", "Scarlet", "Cocoa Kiss"
+  ],
+  "products": [
+    { "name": "Smile & Shine", "category": "Lipstick", "featured": true, "mode": "named", "count": 0, "price": 199, "mrp": 299 },
+    { "name": "Mattitude", "category": "Lipstick", "featured": false, "mode": "numbered", "count": 36, "price": 249, "mrp": 349 },
+    { "name": "Rafael", "category": "Nail Lacquer", "featured": true, "mode": "numbered", "count": 60, "price": 59, "mrp": 65 },
+    { "name": "England", "category": "Nail Paint", "featured": false, "mode": "numbered", "count": 60, "price": 49, "mrp": 59 },
+    { "name": "Aura Swift Erase", "category": "NPR Tissue", "featured": false, "mode": "numbered", "count": 6, "price": 99, "mrp": 129 },
+    { "name": "Aura Bare Bear Wipes", "category": "NPR Tissue", "featured": false, "mode": "numbered", "count": 6, "price": 99, "mrp": 129 },
+    { "name": "Potlis", "category": "Combo Packs", "featured": true, "mode": "numbered", "count": 4, "price": 499, "mrp": 699 },
+    { "name": "Box", "category": "Combo Packs", "featured": false, "mode": "numbered", "count": 3, "price": 799, "mrp": 999 }
+  ],
+  "reviewsOnFirstVariant": [
+    { "customerName": "Aisha", "rating": 5, "text": "Gorgeous shade, lasts all day.", "approved": true },
+    { "customerName": "Neha", "rating": 4, "text": "Lovely finish, will reorder.", "approved": true }
+  ]
+}

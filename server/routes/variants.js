@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controller/shades");
+const controller = require("../controller/variants");
 const { loginCheck, adminCheck } = require("../middleware/auth");
 const { makeUploader } = require("../config/uploadCloud");
 
+// Cloudinary subfolder kept as "shades" so variant image paths stay consistent
+// with already-uploaded assets.
 const upload = makeUploader("shades");
 const admin = [loginCheck, adminCheck];
 

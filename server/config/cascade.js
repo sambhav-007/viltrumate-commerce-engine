@@ -1,29 +1,34 @@
 const Product = require("../models/products");
-const Shade = require("../models/shades");
+const Variant = require("../models/variants");
 const Review = require("../models/reviews");
 const { destroyAssets } = require("./cloudinary");
 
-const shadeImageIds = (shade) => (shade.images || []).map((i) => i.publicId);
+const variantImageIds = (variant) => (variant.images || []).map((i) => i.publicId);
 
-// Delete a shade: its Cloudinary images + its reviews + the doc.
-async function deleteShadeById(id) {
-  const shade = await Shade.findById(id);
-  if (!shade) return;
-  await destroyAssets(shadeImageIds(shade));
-  await Review.deleteMany({ shade: id });
-  await Shade.findByIdAndDelete(id);
+// Delete a variant: its Cloudinary images + its reviews + the doc.
+async function deleteVariantById(id) {
+  const variant = await Variant.findById(id);
+  if (!variant) return;
+  await destroyAssets(variantImageIds(variant));
+  await Review.deleteMany({ shade: id }); // review.shade ref kept for data compat
+  await Variant.findByIdAndDelete(id);
 }
 
-// Delete a product: all its shades' images + shades + reviews + cover + the doc.
+// Delete a product: all its variants' images + variants + reviews + cover + doc.
 async function deleteProductById(id) {
   const product = await Product.findById(id);
   if (!product) return;
-  const shades = await Shade.find({ product: id });
-  for (const s of shades) await destroyAssets(shadeImageIds(s));
-  await Shade.deleteMany({ product: id });
+  const variants = await Variant.find({ product: id });
+  for (const v of variants) await destroyAssets(variantImageIds(v));
+  await Variant.deleteMany({ product: id });
   await Review.deleteMany({ product: id });
   if (product.coverImage) await destroyAssets(product.coverImage.publicId);
   await Product.findByIdAndDelete(id);
 }
 
-module.exports = { deleteShadeById, deleteProductById };
+module.exports = {
+  deleteVariantById,
+  deleteProductById,
+  // Back-compat alias.
+  deleteShadeById: deleteVariantById,
+};

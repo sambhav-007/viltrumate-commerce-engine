@@ -1,35 +1,24 @@
 /*
- * Demo seed for previewing the Aura Rare UI (no images — uses placeholders).
+ * Aura Rare demo seed (DEVELOPMENT ONLY) — previews the storefront with the
+ * original cosmetics catalog. Real client stores start empty (see provisioning).
  * Run: node scripts/seed.js   (uses DATABASE from .env)
- * WARNING: clears catalog collections first.
+ * WARNING: clears catalog collections + StoreSettings first.
  */
 require("dotenv").config();
 const mongoose = require("mongoose");
-const { baseSlug } = require("../config/slug");
-
-const Category = require("../models/categories");
-const Product = require("../models/products");
-const Shade = require("../models/shades");
-const Review = require("../models/reviews");
+const { connect } = require("../config/db");
 const StoreSettings = require("../models/storeSettings");
+const { seedCatalog } = require("../provisioning/seedCatalog");
+const auraRare = require("../provisioning/presets/aura-rare.json");
 
-const pad2 = (n) => String(n).padStart(2, "0");
+// content is stored as [{k,v}] pairs (dots aren't allowed in DB field names).
+const toEntries = (o) => Object.entries(o).map(([k, v]) => ({ k, v }));
 
 async function run() {
-  await mongoose.connect(process.env.DATABASE, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  });
-  console.log("Connected. Clearing catalog…");
-  await Promise.all([
-    Category.deleteMany({}),
-    Product.deleteMany({}),
-    Shade.deleteMany({}),
-    Review.deleteMany({}),
-  ]);
+  await connect();
+  console.log("Connected. Seeding Aura Rare demo…");
 
-  // Store settings (singleton)
+  // Store settings (singleton) — Aura Rare identity for the demo storefront.
   await StoreSettings.deleteMany({});
   await StoreSettings.create({
     storeName: "Aura Rare",
@@ -39,121 +28,44 @@ async function run() {
       "Aura Rare is a premium cosmetics house crafting nail lacquers, lipsticks and beauty essentials in considered, wearable shades — made to let your natural glow lead.",
     contactEmail: "hello@aurarare.in",
     contactPhone: "+91 98765 43210",
-    instagramUrl: "https://instagram.com",
+    instagramUrl: "https://instagram.com/aurarare",
     facebookUrl: "https://facebook.com",
     heroHeading: "Quiet Luxury, Bare Skin",
     heroSubheading: "Cosmetics crafted to let you glow.",
+    // Aura's original storefront copy, relocated from React into data so the
+    // demo store reads textually identical while the engine defaults stay generic.
+    content: toEntries({
+      "home.hero.eyebrow": "{storeName} · Rare by Nature",
+      "home.hero.cta": "Explore Collection",
+      "home.bestsellers.eyebrow": "Loved Most",
+      "home.story.title": "Rare by Nature",
+      "home.story.cta": "Discover the Range",
+      "home.featured.eyebrow": "The Edit",
+      "home.featured.title": "Featured Shades",
+      "home.testimonial.quote":
+        "“Quiet luxury you can wear every day. The shades feel considered, the finish effortless.”",
+      "home.testimonial.attribution": "— The {storeName} Community",
+      "home.social.title": "Join the Aura",
+      "footer.tagline": "Rare by Nature",
+      "footer.cta": "Order on WhatsApp",
+      "footer.strip": "Crafted with care · Ordered over WhatsApp",
+      "about.title": "Rare by Nature",
+      "about.cta": "Explore the Collection",
+      "thankyou.body":
+        "Your order has been opened in WhatsApp. Please press send there to confirm it with us — we'll reply shortly to arrange delivery.",
+      "thankyou.bodyAlt": "Didn't reach WhatsApp? Message us directly at {contactPhone}.",
+      "nav.cta": "Order via WhatsApp",
+      "product.card.count": "{count} Shades",
+      "search.empty.hint": "Try a shade name, product, or collection.",
+      "search.empty.cta": "Browse Collections",
+      "search.section.variants": "Shades",
+    }),
   });
 
-  // Categories
-  const cats = {};
-  let order = 0;
-  for (const name of [
-    "Lipstick",
-    "Nail Lacquer",
-    "Nail Paint",
-    "NPR Tissue",
-    "Combo Packs",
-  ]) {
-    cats[name] = await Category.create({
-      name,
-      slug: baseSlug(name),
-      description: `${name} by Aura Rare`,
-      status: "Active",
-      order: order++,
-    });
-  }
-
-  // Products: [name, category, featured, shadeMode, count, price, mrp]
-  const products = [
-    ["Smile & Shine", "Lipstick", true, "named", 0, 199, 299],
-    ["Mattitude", "Lipstick", false, "numbered", 36, 249, 349],
-    ["Rafael", "Nail Lacquer", true, "numbered", 60, 59, 65],
-    ["England", "Nail Paint", false, "numbered", 60, 49, 59],
-    ["Aura Swift Erase", "NPR Tissue", false, "numbered", 6, 99, 129],
-    ["Aura Bare Bear Wipes", "NPR Tissue", false, "numbered", 6, 99, 129],
-    ["Potlis", "Combo Packs", true, "numbered", 4, 499, 699],
-    ["Box", "Combo Packs", false, "numbered", 3, 799, 999],
-  ];
-
-  const lipstickShades = [
-    "Passionate Red",
-    "Hot Red",
-    "Rusty Nude",
-    "Maroon Bride",
-    "Pink Blush",
-    "Coral Crush",
-    "Mauve Muse",
-    "Berry Bold",
-    "Spiced Cocoa",
-    "Rose Petal",
-    "Cherry Noir",
-    "Terracotta",
-    "Soft Plum",
-    "Caramel",
-    "Brick Lane",
-    "Wine Velvet",
-    "Peach Nude",
-    "Dusty Rose",
-    "Crimson",
-    "Toffee",
-    "Magenta",
-    "Bare Beige",
-    "Scarlet",
-    "Cocoa Kiss",
-  ];
-
-  for (const [pname, cat, featured, mode, count, price, mrp] of products) {
-    const product = await Product.create({
-      name: pname,
-      slug: baseSlug(pname),
-      description: `${pname} — a signature ${cat.toLowerCase()} collection from Aura Rare.`,
-      category: cats[cat]._id,
-      isFeatured: featured,
-      status: "Active",
-    });
-
-    const names =
-      mode === "named"
-        ? lipstickShades
-        : Array.from({ length: count }, (_, i) => `Shade ${pad2(i + 1)}`);
-
-    const docs = names.map((nm, i) => ({
-      product: product._id,
-      name: nm,
-      slug: `${baseSlug(pname)}-${baseSlug(nm)}-${i}`,
-      price,
-      mrp,
-      status: "Active",
-      images: [],
-    }));
-    const shades = await Shade.insertMany(docs);
-
-    // A couple of approved reviews on the first shade
-    if (shades[0]) {
-      await Review.create([
-        {
-          shade: shades[0]._id,
-          product: product._id,
-          customerName: "Aisha",
-          rating: 5,
-          text: "Gorgeous shade, lasts all day.",
-          approved: true,
-        },
-        {
-          shade: shades[0]._id,
-          product: product._id,
-          customerName: "Neha",
-          rating: 4,
-          text: "Lovely finish, will reorder.",
-          approved: true,
-        },
-      ]);
-    }
-    console.log(`  ${pname}: ${shades.length} shades`);
-  }
-
-  console.log("Seed complete.");
+  const counts = await seedCatalog(auraRare);
+  console.log(
+    `Seed complete: ${counts.categories} categories, ${counts.products} products, ${counts.variants} variants.`
+  );
   await mongoose.disconnect();
 }
 
