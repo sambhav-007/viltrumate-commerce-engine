@@ -52,6 +52,19 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 - **Coexistence fix:** `withStoreDb` now closes only the default (store) connection (`mongoose.connection.close()`), not `mongoose.disconnect()`, so the persistent platform connection survives per-store cycles.
 - **Verified:** 22/22 end-to-end checks against a live cluster on an isolated `vce_platform_verify` + throwaway store DB (auth gate, platform registration, provisioning, settings edit, activity logging incl. operator attribution, deployment record + list, dashboard aggregation, duplicate guard, operator create + password redaction, **fleet fallback** via the existing `x123` registry entry). Test DBs dropped, fleet.json restored. Browser DOM pass of the new dashboard/tabs still recommended.
 
+**This session (Phase Κ — Deployment Engine):**
+- **Provider abstraction** (`server/platform/deploy/`) — `DeploymentProvider` base (`deploy/update/destroy/status/logs`) + `registry.js`. Deployment logic lives **only** in the platform layer; commerce/panel contain none. New targets (Vercel/Render/Docker) plug in via the registry.
+- **Local/Manual provider** (`localProvider.js`) — generates a self-contained deployment **package** on disk (no cloud push): `frontend.env`, `backend.env`, `deployment.json`, `healthcheck.json`, `README.md`, `nginx.conf.example`, `start.sh`, `SECRETS.md`. Written to gitignored `server/deployments/<storeId>/<version>/`.
+- **Environment generator** (`packageBuilder.js`) — assembles env from authoritative sources (platform Store db name/domain, manifest infra, live StoreSettings) + operator secrets; order Identity→Database→Theme→Payments→Secrets→Generate. Secrets land **only** in `backend.env` (verified absent from the other files).
+- **Secrets validation** (`validateSecrets.js`) — pre-flight checks db/cloudinary/payment-keys/panel/feature-compat; blocking gaps **refuse generation** (HTTP 422) with a per-check report. Warnings (e.g. stripe stub, whatsapp number) are non-blocking.
+- **Versioning** (`version.js`) — semver per generation (first `1.0.0`; patch/minor/major); stored on the platform Store `currentVersion` and each Deployment record.
+- **Healthcheck manifest** — `healthcheck.json` (api/frontend/database/payments/cloudinary) for later deploy verification; also stored on the record.
+- **Deployment model expanded** — `provider`, `status` (generated→started→completed/failed/rolled_back), `packagePath`, `healthcheck`, `secretsChecklist`, `rollback` (non-secret metadata for future rollback), `deployedAt` (set on completed). **Rollback itself is intentionally NOT implemented** — records just carry enough to enable it later.
+- **Timeline** — every generation + status transition writes an activity event (package generated / started / completed / failed / rolled back).
+- **Download** — package zips via a dependency-free STORE-method zip writer (`zip.js`); the panel fetches with the key header and triggers a blob download.
+- **Panel UI** — the **Deployment** tab (replaces Operations): current version, provider/bump/env picker, Validate + Generate, per-version download links, status-advance buttons, history table. New endpoints: `GET /api/deploy/providers`, `GET …/deploy/validate`, `POST …/deployments/package`, `GET …/deployments/:depId/package`, `POST …/deployments/:depId/status` (legacy `POST …/deployments` kept as a manual record, provider `manual`).
+- **Verified:** 25/25 end-to-end on an isolated platform + throwaway store DB (provider registry, provisioning, validation ok-path, package generation + 8 files on disk, record fields incl. healthcheck/rollback, **valid zip download**, status timeline started→completed w/ deployedAt, activity timeline, minor-bump versioning + platform `currentVersion` persistence, **invalid deployment refused 422 with no package written**, history). Module unit tests (version/validation/builder/zip) passed; zip validated via PowerShell Expand-Archive; no secrets in non-env files. Test DBs dropped, package dir + manifest removed, fleet.json restored. Browser DOM pass still recommended.
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -82,6 +95,10 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Platform Database (`vce_platform`: stores/operators/deployments/activity) | ✅ 22/22 e2e-verified on isolated DB; browser DOM pass pending |
 | Panel dashboard + store-detail tabs | ✅ built + API-verified; browser DOM pass pending |
 | Fleet→platform resolution (platform-first, JSON fallback) | ✅ verified (incl. fallback) |
+| Deployment Engine (provider abstraction + Local package generator) | ✅ 25/25 e2e-verified on isolated DB; browser DOM pass pending |
+| Deployment package (env/manifest/healthcheck/nginx/startup/secrets + zip download) | ✅ verified (zip validated) |
+| Secrets validation (blocks invalid deployments) + semver versioning | ✅ verified |
+| Deployment rollback | 🔲 not implemented by design — records carry rollback metadata for later |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -133,4 +150,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Phase Ι — Platform Database Migration (`vce_platform`: stores/operators/deployments/activity as the panel's source of truth; platform-first + fleet-fallback resolution; dashboard + store tabs; deployment ledger). Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._
+_Last updated: end of Phase Κ — Deployment Engine (provider abstraction + Local/Manual package generator; env/manifest/healthcheck/nginx/startup/secrets package with zip download; secrets validation that blocks invalid deployments; semver versioning; expanded Deployment model with rollback metadata; Deployment tab). Follows Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._

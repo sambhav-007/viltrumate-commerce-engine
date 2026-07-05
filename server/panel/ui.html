@@ -300,7 +300,8 @@ const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsap
 const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
 const LOCKS = ["identity", "theme", "layout", "payment", "features", "seo", "stats", "content"];
 const COLORS = ["cream", "sand", "card", "ink", "muted", "accent", "accent-hover", "hairline"];
-const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Operations", "Security"];
+const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Deployment", "Security"];
+let deployValidation = null;
 
 async function openStore(id) {
   current = id; renderList(); $("navDash").classList.remove("active");
@@ -428,18 +429,32 @@ function renderEditor(id) {
     </div>
   </div>
 
-  <!-- OPERATIONS -->
-  <div class="tab-panel" data-tab="Operations">
-    <div class="card"><h2>Record a deployment</h2>
-      <div class="grid3">
-        <div><label>Version / tag</label><input type="text" id="d_version" placeholder="v1.4.0"/></div>
-        <div><label>Git commit</label><input type="text" id="d_commit" placeholder="auto"/></div>
-        <div><label>Environment</label><select id="d_env"><option>production</option><option>staging</option></select></div>
+  <!-- DEPLOYMENT -->
+  <div class="tab-panel" data-tab="Deployment">
+    <div class="card"><h2>Current version</h2>
+      <div class="row" style="justify-content:space-between">
+        <div><span style="font-size:26px; font-weight:700">v${esc(meta.currentVersion || "—")}</span>
+          <span class="muted"> · ${storeDeployments.length} deployment(s) on record</span></div>
       </div>
-      <label>Notes</label><input type="text" id="d_notes" placeholder="What shipped"/>
-      <div style="margin-top:12px"><button onclick="recordDeployment('${id}')">Record deployment</button></div>
     </div>
-    <div class="card"><h2>Deployment history</h2><div id="depTable">${renderDeployTable(storeDeployments, false)}</div></div>
+    <div class="card"><h2>Generate deployment package</h2>
+      <p class="muted">Validates secrets &amp; feature compatibility, then generates a self-contained
+      package (env files, manifest, healthcheck, nginx template, startup script, secrets checklist)
+      and bumps the version. No cloud push — the Local provider produces a package you apply manually.</p>
+      <div class="grid3">
+        <div><label>Provider</label><select id="dp_provider"></select></div>
+        <div><label>Version bump</label><select id="dp_bump">
+          <option value="patch">patch</option><option value="minor">minor</option><option value="major">major</option></select></div>
+        <div><label>Environment</label><select id="dp_env"><option>production</option><option>staging</option></select></div>
+      </div>
+      <label>Notes</label><input type="text" id="dp_notes" placeholder="What this deployment ships"/>
+      <div style="margin-top:12px" class="row">
+        <button class="secondary" onclick="validateDeploy('${id}')">Validate</button>
+        <button id="dp_go" onclick="generatePackage('${id}')">Generate package</button>
+      </div>
+      <div id="dp_validation" style="margin-top:12px"></div>
+    </div>
+    <div class="card"><h2>Deployment history</h2><div id="depTable">${renderStoreDeployments(id)}</div></div>
   </div>
 
   <!-- SECURITY -->
@@ -459,8 +474,11 @@ function renderEditor(id) {
       document.querySelector(`[data-color="${p.dataset.colorpick}"]`).value = p.value;
     })
   );
-  // Prefill deployment commit with the current repo commit.
-  api("/git-commit").then((d) => { if (d.commit && $("d_commit") && !$("d_commit").value) $("d_commit").value = d.commit; }).catch(() => {});
+  // Populate the deployment provider list.
+  api("/deploy/providers").then((d) => {
+    const sel = $("dp_provider");
+    if (sel) sel.innerHTML = (d.providers || ["local"]).map((p) => `<option>${esc(p)}</option>`).join("");
+  }).catch(() => {});
 }
 
 const statRow = (st, i) => `
@@ -475,22 +493,95 @@ function addStatRow() {
   $("statRows").insertAdjacentHTML("beforeend", statRow({ value: 0, suffix: "+", label: "" }));
 }
 
-async function recordDeployment(id) {
+/* ---------- deployment engine ---------- */
+const STATUS_NEXT = { generated: ["started"], started: ["completed", "failed"], failed: ["started"], completed: ["rolled_back"], rolled_back: [] };
+
+function renderStoreDeployments(id) {
+  if (!storeDeployments.length) return '<p class="muted">No deployments yet — generate a package above.</p>';
+  return `<table class="mini"><thead><tr>
+    <th>Version</th><th>Provider</th><th>Status</th><th>Commit</th><th>Created</th><th>Package</th><th>Advance</th></tr></thead>
+    <tbody>${storeDeployments.map((d) => `<tr>
+      <td><b>v${esc(d.version || "—")}</b></td>
+      <td>${esc(d.provider || "local")}</td>
+      <td><span class="status ${d.status === "completed" ? "active" : d.status === "failed" ? "error" : "provisioning"}">${esc(d.status || "generated")}</span></td>
+      <td><code>${esc(d.gitCommit || "—")}</code></td>
+      <td>${fmtTime(d.createdAt)}</td>
+      <td>${d.packagePath ? `<a href="#" onclick="downloadPackage('${id}','${d._id}');return false">download</a>` : "—"}</td>
+      <td>${(STATUS_NEXT[d.status] || []).map((s) => `<button class="small secondary" onclick="setDepStatus('${id}','${d._id}','${s}')">${s}</button>`).join(" ") || "—"}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+function renderValidation(v) {
+  if (!v) return "";
+  const icon = (s) => (s === "ok" ? "✅" : s === "warn" ? "⚠️" : "❌");
+  return `<div class="${v.ok ? "" : "locknote"}" style="${v.ok ? "font-size:13px" : ""}">
+    <b>${v.ok ? "✅ Ready to generate" : "❌ Cannot generate — missing values"}</b>
+    <ul class="log" style="margin-top:6px">${(v.checks || []).map((c) =>
+      `<li><span>${icon(c.status)} <b>${esc(c.name)}</b>${c.detail ? ` — ${esc(c.detail)}` : ""}</span></li>`).join("")}</ul>
+  </div>`;
+}
+
+async function validateDeploy(id) {
   try {
-    await api(`/stores/${id}/deployments`, {
+    const d = await api(`/stores/${id}/deploy/validate`);
+    deployValidation = d.validation;
+    $("dp_validation").innerHTML = renderValidation(d.validation);
+  } catch (e) { toast("❌ " + e.message); }
+}
+
+async function generatePackage(id) {
+  const btn = $("dp_go"); btn.disabled = true; btn.textContent = "Generating…";
+  try {
+    const d = await api(`/stores/${id}/deployments/package`, {
       method: "POST",
       body: JSON.stringify({
-        version: $("d_version").value.trim(),
-        gitCommit: $("d_commit").value.trim(),
-        environment: $("d_env").value,
-        notes: $("d_notes").value.trim(),
+        provider: $("dp_provider").value,
+        bump: $("dp_bump").value,
+        environment: $("dp_env").value,
+        notes: $("dp_notes").value.trim(),
       }),
     });
+    $("dp_validation").innerHTML = renderValidation(d.validation);
+    $("dp_notes").value = "";
+    // refresh history + current version + activity
+    const [dep, s] = await Promise.all([api(`/stores/${id}/deployments`), api(`/stores/${id}/settings`)]);
+    storeDeployments = dep.deployments || []; storeMeta = s.store;
+    $("depTable").innerHTML = renderStoreDeployments(id);
+    toast(`✅ ${d.success} (${(d.files || []).length} files)`, 6000);
+    openStore(id); // re-render (updates Current version + Overview activity)
+  } catch (e) {
+    // On validation failure the server refuses to generate; re-fetch the
+    // validation so the operator sees exactly what's missing.
+    try {
+      const vd = await api(`/stores/${id}/deploy/validate`);
+      $("dp_validation").innerHTML = renderValidation(vd.validation);
+    } catch (_) {}
+    toast("❌ " + e.message);
+  }
+  btn.disabled = false; btn.textContent = "Generate package";
+}
+
+async function downloadPackage(id, depId) {
+  try {
+    const r = await fetch(`/api/stores/${id}/deployments/${depId}/package`, {
+      headers: { "x-panel-key": KEY, "x-panel-operator": OPERATOR || "panel" },
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || r.statusText); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${id}-package.zip`; document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+  } catch (e) { toast("❌ " + e.message); }
+}
+
+async function setDepStatus(id, depId, status) {
+  try {
+    await api(`/stores/${id}/deployments/${depId}/status`, { method: "POST", body: JSON.stringify({ status }) });
     const dep = await api(`/stores/${id}/deployments`);
     storeDeployments = dep.deployments || [];
-    $("depTable").innerHTML = renderDeployTable(storeDeployments, false);
-    $("d_version").value = ""; $("d_notes").value = "";
-    toast("✅ Deployment recorded");
+    $("depTable").innerHTML = renderStoreDeployments(id);
+    toast(`✅ ${status}`);
   } catch (e) { toast("❌ " + e.message); }
 }
 

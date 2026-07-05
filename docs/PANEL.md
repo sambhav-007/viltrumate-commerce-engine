@@ -81,8 +81,43 @@ Lockable: `identity, theme, layout, payment, features, seo, stats, content`.
   activity, and latest deployments — all from the platform database.
 - **Store detail** is organised into tabs: **Overview** (platform metadata + per-store
   activity), **Appearance** (theme/typography/tokens/motion/layout), **Commerce** (payment),
-  **Content** (identity/hero), **Features** (flags + trust stats), **Operations** (record +
-  view deployments), **Security** (agency locks). One "Save all changes" persists every tab.
+  **Content** (identity/hero), **Features** (flags + trust stats), **Deployment** (current
+  version, generate/download package, deployment history — see below), **Security** (agency
+  locks). One "Save all changes" persists the settings tabs.
+
+## Deployment Engine (Phase Κ)
+
+The **Deployment** tab moves a store from "created" to "live" with minimal manual work by
+**generating a complete deployment package**. Deployment logic lives entirely in the platform
+layer (`server/platform/deploy/`) behind a `DeploymentProvider` interface — the commerce
+engine and panel never contain deployment logic.
+
+- **Providers:** `DeploymentProvider` defines `deploy()/update()/destroy()/status()/logs()`.
+  New targets (Vercel/Render/Docker/…) register in `deploy/registry.js` and appear in the
+  panel automatically. The initial **Local/Manual** provider generates a package (no cloud push).
+- **Package** (written to the gitignored `server/deployments/<storeId>/<version>/`, downloadable
+  as a zip): `frontend.env`, `backend.env`, `deployment.json`, `healthcheck.json`, `README.md`,
+  `nginx.conf.example`, `start.sh`, `SECRETS.md`.
+- **Environment generator** assembles env files straight from their authoritative sources —
+  platform Store (db name, domain), the store manifest (api/client URLs, cloudinary folder,
+  currency/locale) and live StoreSettings (payment/features/identity), plus operator secrets
+  from the environment. Order: Identity → Database → Theme → Payments → Secrets → Generate.
+  Secrets appear **only** in `backend.env`, never in `deployment.json`/`healthcheck.json`/frontend.
+- **Secrets validation** runs before generation (`GET …/deploy/validate`): database, cloudinary,
+  payment keys (when razorpay is enabled), panel/platform config, and feature compatibility.
+  Blocking gaps **refuse generation** (HTTP 422) and are shown per-check in the UI.
+- **Versioning:** each generated package gets a semver (first is `1.0.0`; patch/minor/major
+  bump), stored on the platform Store (`currentVersion`) and the Deployment record.
+- **Healthcheck manifest** (`healthcheck.json`) captures api/frontend/database/payments/cloudinary
+  for later deployment verification.
+- **Timeline:** every generation and status transition writes an activity event — *Deployment
+  package generated → started → completed / failed / rolled back*.
+- **Rollback:** not implemented, but every Deployment record carries enough non-secret metadata
+  (`version`, `gitCommit`, `databaseName`, `packagePath`, `rollback{}`) to support it later.
+
+Deployment records (platform `deployments` collection): `provider`, `version`, `gitCommit`,
+`environment`, `status`, `packagePath`, `healthcheck`, `secretsChecklist`, `rollback`,
+`createdAt`, `deployedAt`, `deployedBy`, `notes`.
 
 ## How it works
 

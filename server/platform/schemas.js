@@ -67,19 +67,32 @@ const activityLogSchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 });
 
-// A recorded deployment of a store's code (the code ships out-of-band via
-// docs/DEPLOYMENT.md; this is the ledger of what/when/who).
+// A recorded deployment of a store's code. The Deployment Engine (Phase Κ)
+// generates a self-contained deployment PACKAGE per version; this is the ledger
+// of what/when/who/how, plus enough non-secret metadata to support rollback
+// later (databaseName, commit, version, packagePath). Secrets NEVER live here —
+// they go only into the generated .env files inside the (gitignored) package.
 const deploymentSchema = new mongoose.Schema(
   {
     storeId: { type: String, required: true, index: true },
+    provider: { type: String, default: "local" }, // which DeploymentProvider produced it
+    version: { type: String, default: "" }, // semver, assigned at generation
     gitCommit: { type: String, default: "" },
-    version: { type: String, default: "" },
-    deployedAt: { type: Date, default: Date.now },
-    deployedBy: { type: String, default: "panel" },
     environment: { type: String, default: "production" },
+    status: {
+      type: String,
+      enum: ["generated", "started", "completed", "failed", "rolled_back"],
+      default: "generated",
+    },
+    packagePath: { type: String, default: "" }, // where the package was written (relative to server/)
+    healthcheck: { type: mongoose.Schema.Types.Mixed, default: {} },
+    secretsChecklist: { type: mongoose.Schema.Types.Mixed, default: [] },
+    rollback: { type: mongoose.Schema.Types.Mixed, default: {} }, // non-secret metadata to enable future rollback
+    deployedAt: { type: Date, default: null }, // set when a deploy is marked completed
+    deployedBy: { type: String, default: "panel" },
     notes: { type: String, default: "" },
   },
-  { timestamps: true }
+  { timestamps: true } // createdAt = when the record/package was generated
 );
 
 module.exports = { storeSchema, operatorSchema, activityLogSchema, deploymentSchema };

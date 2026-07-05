@@ -42,12 +42,26 @@ const { createAdminUser } = require("./provisioning/createAdminUser");
 const { seedCatalog } = require("./provisioning/seedCatalog");
 const StoreSettings = require("./models/storeSettings");
 const { platform, configured: platformConfigured, logActivity, upsertStore } = require("./platform");
+const { getProvider, listProviders } = require("./platform/deploy/registry");
+const { validateDeployment } = require("./platform/deploy/validateSecrets");
+const { bumpVersion } = require("./platform/deploy/version");
+const { zipSync } = require("./platform/deploy/zip");
 
 const PORT = Number(process.env.PANEL_PORT) || 8100;
 const KEY = process.env.PANEL_KEY || crypto.randomBytes(18).toString("base64url");
 const FLEET_FILE = path.join(__dirname, "provisioning", "fleet.json");
 const STORES_DIR = path.join(__dirname, "provisioning", "stores");
+const DEPLOY_DIR = path.join(__dirname, "deployments"); // generated packages (gitignored)
 const REPO_ROOT = path.join(__dirname, "..");
+
+// Current repo short commit (best-effort; empty on failure).
+const gitCommit = () => {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: REPO_ROOT }).toString().trim();
+  } catch (e) {
+    return "";
+  }
+};
 
 /* ---------- fleet registry (legacy fallback source) ---------- */
 const readFleet = () =>
@@ -156,16 +170,10 @@ app.get("/api/industries", (req, res) => res.json({ industries: listIndustries()
 
 // GET /api/git-commit -> current short commit (best-effort; used to prefill the
 // Operations tab's deployment form).
-app.get("/api/git-commit", (req, res) => {
-  try {
-    const commit = execSync("git rev-parse --short HEAD", { cwd: REPO_ROOT })
-      .toString()
-      .trim();
-    res.json({ commit });
-  } catch (e) {
-    res.json({ commit: "" });
-  }
-});
+app.get("/api/git-commit", (req, res) => res.json({ commit: gitCommit() }));
+
+// GET /api/deploy/providers -> registered deployment providers
+app.get("/api/deploy/providers", (req, res) => res.json({ providers: listProviders() }));
 
 // GET /api/dashboard -> agency overview (platform db; fleet-count fallback)
 app.get("/api/dashboard", async (req, res) => {
@@ -192,7 +200,7 @@ app.get("/api/dashboard", async (req, res) => {
     const [stores, recentActivity, latestDeployments] = await Promise.all([
       p.Store.find({}),
       p.ActivityLog.find({}).sort({ timestamp: -1 }).limit(12),
-      p.Deployment.find({}).sort({ deployedAt: -1 }).limit(6),
+      p.Deployment.find({}).sort({ createdAt: -1 }).limit(6),
     ]);
     const byIndustry = {};
     let active = 0;
@@ -539,18 +547,176 @@ app.put("/api/stores/:id/settings", async (req, res) => {
   }
 });
 
-// GET /api/stores/:id/deployments -> deployment history
+// GET /api/stores/:id/deployments -> deployment history (newest first)
 app.get("/api/stores/:id/deployments", async (req, res) => {
   const p = platform();
   if (!p) return res.json({ deployments: [] });
   const deployments = await p.Deployment.find({ storeId: req.params.id })
-    .sort({ deployedAt: -1 })
+    .sort({ createdAt: -1 })
     .limit(50);
   res.json({ deployments });
 });
 
-// POST /api/stores/:id/deployments -> record a deployment
-// body: { gitCommit?, version?, environment?, notes? }
+// Assemble the deployment context (store metadata + manifest + live settings)
+// used by both validation and package generation. Never duplicates values —
+// each field flows from its authoritative source.
+async function deploymentContext(id) {
+  const resolved = await resolveStore(id);
+  if (!resolved) return null;
+  const fleet = loadStore(id); // manifest carries infra (api/client urls, cloudinary folder, currency)
+  const manifest = fleet ? fleet.manifest : resolved.manifest || null;
+  const settings = await withStoreDb(resolved.dbName, async () => {
+    let doc = await StoreSettings.findOne({});
+    if (!doc) doc = await StoreSettings.create({});
+    return doc.toObject({ flattenMaps: true });
+  });
+  const store = {
+    storeId: id,
+    name: resolved.meta.name,
+    databaseName: resolved.dbName,
+    domain: resolved.meta.clientUrl || resolved.meta.domain || "",
+    industry: resolved.meta.industry || "",
+    currentVersion: (resolved.platformDoc && resolved.platformDoc.currentVersion) || "",
+  };
+  return { resolved, manifest, settings, store };
+}
+
+// GET /api/stores/:id/deploy/validate -> pre-flight secrets/compat validation
+app.get("/api/stores/:id/deploy/validate", async (req, res) => {
+  try {
+    const ctx = await deploymentContext(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Unknown store" });
+    res.json({ validation: validateDeployment({ store: ctx.store, settings: ctx.settings, manifest: ctx.manifest }) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/stores/:id/deployments/package -> validate + generate a deployment
+// package (a new version). Refuses to generate on blocking validation gaps.
+// body: { provider?="local", bump?="patch"|"minor"|"major", environment?, notes?, gitCommit? }
+app.post("/api/stores/:id/deployments/package", async (req, res) => {
+  const p = platform();
+  if (!p) {
+    return res.status(400).json({ error: "Platform database not configured — deployments require PLATFORM_DATABASE" });
+  }
+  try {
+    const ctx = await deploymentContext(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Unknown store" });
+    const id = ctx.store.storeId;
+
+    // Never generate an invalid deployment.
+    const validation = validateDeployment({ store: ctx.store, settings: ctx.settings, manifest: ctx.manifest });
+    if (!validation.ok) {
+      return res.status(422).json({ error: "Deployment validation failed — fix the missing values", validation });
+    }
+
+    // Version: bump from the latest recorded version (or the store's current).
+    const latest = await p.Deployment.findOne({ storeId: id }).sort({ createdAt: -1 });
+    const base = (latest && latest.version) || ctx.store.currentVersion || "";
+    const version = bumpVersion(base, req.body.bump || "patch");
+    const commit = req.body.gitCommit || gitCommit();
+    const environment = req.body.environment || "production";
+    const providerName = req.body.provider || "local";
+
+    const provider = getProvider(providerName, {
+      store: ctx.store,
+      settings: ctx.settings,
+      manifest: ctx.manifest,
+      version,
+      gitCommit: commit,
+      environment,
+      env: process.env,
+      baseDir: DEPLOY_DIR,
+    });
+    const result = await provider.deploy();
+
+    const deployment = await p.Deployment.create({
+      storeId: id,
+      provider: providerName,
+      version,
+      gitCommit: commit,
+      environment,
+      status: "generated",
+      packagePath: result.packagePath,
+      healthcheck: result.healthcheck,
+      secretsChecklist: result.secretsChecklist,
+      rollback: result.rollback,
+      deployedBy: operatorOf(req),
+      notes: req.body.notes || "",
+    });
+    await p.Store.updateOne({ storeId: id }, { $set: { currentVersion: version } });
+    await logActivity({
+      operator: operatorOf(req),
+      storeId: id,
+      action: "Deployment package generated",
+      metadata: { version, provider: providerName, packagePath: result.packagePath, environment },
+    });
+
+    res.json({ success: `Package v${version} generated`, deployment, version, validation, files: result.files });
+  } catch (err) {
+    res.status(500).json({ error: `Package generation failed: ${err.message}` });
+  }
+});
+
+// GET /api/stores/:id/deployments/:depId/package -> download the package (zip)
+app.get("/api/stores/:id/deployments/:depId/package", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  try {
+    const dep = await p.Deployment.findOne({ _id: req.params.depId, storeId: req.params.id });
+    if (!dep || !dep.packagePath) return res.status(404).json({ error: "No package for this deployment" });
+    const dir = path.join(__dirname, dep.packagePath);
+    if (!fs.existsSync(dir)) return res.status(410).json({ error: "Package files are no longer on disk" });
+    const entries = fs
+      .readdirSync(dir)
+      .filter((f) => fs.statSync(path.join(dir, f)).isFile())
+      .map((f) => ({ name: f, content: fs.readFileSync(path.join(dir, f)) }));
+    const zip = zipSync(entries);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${req.params.id}-v${dep.version}.zip"`);
+    res.send(zip);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/stores/:id/deployments/:depId/status -> advance a deployment through
+// the timeline (started/completed/failed/rolled_back), logging each transition.
+const STATUS_ACTION = {
+  started: "Deployment started",
+  completed: "Deployment completed",
+  failed: "Deployment failed",
+  rolled_back: "Deployment rolled back",
+};
+app.post("/api/stores/:id/deployments/:depId/status", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  const { status, notes } = req.body;
+  if (!STATUS_ACTION[status]) {
+    return res.status(400).json({ error: `status must be one of: ${Object.keys(STATUS_ACTION).join(", ")}` });
+  }
+  try {
+    const dep = await p.Deployment.findOne({ _id: req.params.depId, storeId: req.params.id });
+    if (!dep) return res.status(404).json({ error: "Unknown deployment" });
+    dep.status = status;
+    if (notes) dep.notes = notes;
+    if (status === "completed") dep.deployedAt = new Date();
+    await dep.save();
+    await logActivity({
+      operator: operatorOf(req),
+      storeId: req.params.id,
+      action: STATUS_ACTION[status],
+      metadata: { version: dep.version, provider: dep.provider },
+    });
+    res.json({ success: STATUS_ACTION[status], deployment: dep });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/stores/:id/deployments -> record a MANUAL deployment (backwards
+// compatible; no package generated). status defaults to completed.
 app.post("/api/stores/:id/deployments", async (req, res) => {
   const p = platform();
   if (!p) {
@@ -559,12 +725,15 @@ app.post("/api/stores/:id/deployments", async (req, res) => {
   try {
     const store = await resolveStore(req.params.id);
     if (!store) return res.status(404).json({ error: "Unknown store" });
-    const { gitCommit = "", version = "", environment = "production", notes = "" } = req.body;
+    const { gitCommit: commit = "", version = "", environment = "production", notes = "" } = req.body;
     const deployment = await p.Deployment.create({
       storeId: store.id,
-      gitCommit,
+      provider: "manual",
+      gitCommit: commit,
       version,
       environment,
+      status: "completed",
+      deployedAt: new Date(),
       notes,
       deployedBy: operatorOf(req),
     });
@@ -575,7 +744,7 @@ app.post("/api/stores/:id/deployments", async (req, res) => {
       operator: operatorOf(req),
       storeId: store.id,
       action: "Deployment completed",
-      metadata: { version, gitCommit, environment },
+      metadata: { version, gitCommit: commit, environment, manual: true },
     });
     res.json({ success: "Deployment recorded", deployment });
   } catch (err) {
