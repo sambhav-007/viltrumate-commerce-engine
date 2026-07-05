@@ -8,16 +8,22 @@
   :root {
     --ink: #1c1917; --muted: #78716c; --bg: #fafaf9; --card: #ffffff;
     --line: #e7e5e4; --accent: #0f766e; --accent-soft: #f0fdfa; --danger: #b91c1c;
+    --amber: #92400e;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 14px/1.5 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--ink); }
   header { display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: var(--ink); color: #fff; }
   header h1 { font-size: 15px; margin: 0; letter-spacing: 0.14em; text-transform: uppercase; }
   header .sub { color: #a8a29e; font-size: 12px; }
+  header .op { margin-left: auto; }
+  header .op input { background: #292524; border: 1px solid #44403c; color: #fff; border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; width: 160px; }
   .wrap { display: grid; grid-template-columns: 270px 1fr; min-height: calc(100vh - 52px); }
   aside { border-right: 1px solid var(--line); background: var(--card); padding: 14px; }
-  main { padding: 22px 26px; max-width: 980px; }
-  .store-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
+  main { padding: 22px 26px; max-width: 1000px; }
+  .nav-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; font-weight: 600; }
+  .nav-item:hover { background: var(--bg); }
+  .nav-item.active { background: var(--accent-soft); border: 1px solid var(--accent); }
+  .store-item { padding: 9px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; }
   .store-item:hover { background: var(--bg); }
   .store-item.active { background: var(--accent-soft); border: 1px solid var(--accent); }
   .store-item .id { color: var(--muted); font-size: 12px; }
@@ -43,17 +49,49 @@
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 8px; display: none; max-width: 480px; white-space: pre-wrap; }
   .muted { color: var(--muted); font-size: 12px; }
   .pill { display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 9px; font-size: 11px; margin-left: 6px; }
-  .locknote { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #92400e; margin-bottom: 12px; }
+  .status { display: inline-block; border-radius: 99px; padding: 1px 9px; font-size: 11px; text-transform: capitalize; }
+  .status.active { background: #ecfdf5; color: #047857; }
+  .status.provisioning { background: #fffbeb; color: var(--amber); }
+  .status.error { background: #fef2f2; color: var(--danger); }
+  .status.inactive, .status.archived { background: #f5f5f4; color: var(--muted); }
+  .locknote { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--amber); margin-bottom: 12px; }
   #login { max-width: 380px; margin: 12vh auto; }
   .stat-row { display: grid; grid-template-columns: 90px 70px 1fr 34px; gap: 8px; margin-bottom: 6px; align-items: center; }
   .stat-row button { padding: 6px 0; background: #fff; color: var(--danger); border: 1px solid var(--line); }
   hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+  /* dashboard */
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .kpi .n { font-size: 30px; font-weight: 700; }
+  .kpi .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .barrow { display: grid; grid-template-columns: 120px 1fr 40px; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 13px; }
+  .bar { height: 10px; border-radius: 6px; background: var(--accent); }
+  .bartrack { background: var(--bg); border-radius: 6px; }
+  .log { list-style: none; margin: 0; padding: 0; }
+  .log li { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; align-items: baseline; }
+  .log li:last-child { border-bottom: none; }
+  .log .when { color: var(--muted); font-size: 11px; white-space: nowrap; min-width: 118px; }
+  .log .who { color: var(--accent); font-size: 12px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  table.mini th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  /* tabs */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 8px 14px; cursor: pointer; border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; border-radius: 0; font-weight: 600; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
+  .kv .k { color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <h1>VCE Panel</h1>
-  <span class="sub">agency control plane — stores, themes, features, locks</span>
+  <span class="sub">agency control plane — platform database</span>
+  <span class="op" id="opBox" style="display:none">
+    <input type="text" id="opInput" placeholder="operator (for audit)" title="Recorded as the actor in the activity log" />
+  </span>
 </header>
 
 <div id="login" style="display:none">
@@ -67,10 +105,11 @@
 
 <div class="wrap" id="app" style="display:none">
   <aside>
-    <button style="width:100%" onclick="showCreate()">+ New store</button>
-    <div id="storeList" style="margin-top:12px"></div>
+    <div class="nav-item" id="navDash" onclick="showDashboard()">📊 Dashboard</div>
+    <button style="width:100%; margin:6px 0 12px" onclick="showCreate()">+ New store</button>
+    <div id="storeList"></div>
   </aside>
-  <main id="main"><p class="muted">Select a store, or create one.</p></main>
+  <main id="main"><p class="muted">Loading…</p></main>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -78,12 +117,19 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let KEY = localStorage.getItem("vce_panel_key") || "";
+let OPERATOR = localStorage.getItem("vce_panel_operator") || "";
 let stores = [], current = null, S = null; // S = current settings doc
+let storeMeta = null, storeDeployments = [], storeActivity = [];
 
 const api = (path, opts = {}) =>
   fetch("/api" + path, {
     ...opts,
-    headers: { "Content-Type": "application/json", "x-panel-key": KEY, ...(opts.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      "x-panel-key": KEY,
+      "x-panel-operator": OPERATOR || "panel",
+      ...(opts.headers || {}),
+    },
   }).then(async (r) => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.statusText);
@@ -98,6 +144,9 @@ const toast = (msg, ms = 3500) => {
   t._h = setTimeout(() => (t.style.display = "none"), ms);
 };
 
+const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const fmtTime = (t) => { try { return new Date(t).toLocaleString(); } catch (e) { return t || ""; } };
+
 function saveKey() {
   KEY = $("keyInput").value.trim();
   localStorage.setItem("vce_panel_key", KEY);
@@ -110,7 +159,11 @@ async function boot() {
     stores = d.stores;
     $("login").style.display = "none";
     $("app").style.display = "grid";
+    $("opBox").style.display = "block";
+    $("opInput").value = OPERATOR;
+    $("opInput").oninput = () => { OPERATOR = $("opInput").value.trim(); localStorage.setItem("vce_panel_operator", OPERATOR); };
     renderList();
+    showDashboard();
   } catch (e) {
     $("login").style.display = "block";
     $("app").style.display = "none";
@@ -122,29 +175,82 @@ function renderList() {
   $("storeList").innerHTML = stores
     .map(
       (s) => `<div class="store-item ${current === s.id ? "active" : ""}" onclick="openStore('${s.id}')">
-        <div><b>${s.name || s.id}</b>${s.industry ? `<span class="pill">${s.industry}</span>` : ""}</div>
-        <div class="id">${s.db || s.id}</div>
+        <div><b>${esc(s.name || s.id)}</b>${s.industry ? `<span class="pill">${esc(s.industry)}</span>` : ""}</div>
+        <div class="id">${esc(s.db || s.id)}${s.source === "fleet" ? " · fleet" : ""}</div>
       </div>`
     )
     .join("") || '<p class="muted">No stores yet.</p>';
 }
 
+/* ---------- dashboard ---------- */
+async function showDashboard() {
+  current = null; renderList();
+  $("navDash").classList.add("active");
+  $("main").innerHTML = '<p class="muted">Loading dashboard…</p>';
+  let d;
+  try { d = await api("/dashboard"); } catch (e) { return ($("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`); }
+  const inds = Object.entries(d.byIndustry || {}).sort((a, b) => b[1] - a[1]);
+  const maxInd = Math.max(1, ...inds.map(([, n]) => n));
+  $("main").innerHTML = `
+  <div class="row" style="justify-content:space-between; margin-bottom:14px">
+    <div><b style="font-size:17px">Agency dashboard</b>
+      <span class="muted"> · ${d.platform ? "platform database" : "fleet registry (PLATFORM_DATABASE not set)"}</span></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="n">${d.totalStores}</div><div class="l">Total stores</div></div>
+    <div class="kpi"><div class="n">${d.activeStores}</div><div class="l">Active stores</div></div>
+    <div class="kpi"><div class="n">${inds.length}</div><div class="l">Industries</div></div>
+  </div>
+  <div class="card"><h2>Stores by industry</h2>
+    ${inds.length ? inds.map(([k, n]) => `
+      <div class="barrow"><span>${esc(k)}</span>
+        <span class="bartrack"><span class="bar" style="width:${Math.round((n / maxInd) * 100)}%"></span></span>
+        <span style="text-align:right">${n}</span></div>`).join("") : '<p class="muted">No stores yet.</p>'}
+  </div>
+  <div class="card"><h2>Recent activity</h2>
+    ${renderActivityList(d.recentActivity)}
+  </div>
+  <div class="card"><h2>Latest deployments</h2>
+    ${renderDeployTable(d.latestDeployments, true)}
+  </div>`;
+}
+
+function renderActivityList(items) {
+  if (!items || !items.length) return '<p class="muted">No activity recorded yet.</p>';
+  return `<ul class="log">${items.map((a) => `
+    <li><span class="when">${fmtTime(a.timestamp)}</span>
+      <span><b>${esc(a.action)}</b>${a.storeId ? ` · <span class="who">${esc(a.storeId)}</span>` : ""}
+      <span class="muted"> — ${esc(a.operator)}</span></span></li>`).join("")}</ul>`;
+}
+
+function renderDeployTable(items, withStore) {
+  if (!items || !items.length) return '<p class="muted">No deployments recorded yet.</p>';
+  return `<table class="mini"><thead><tr>
+    ${withStore ? "<th>Store</th>" : ""}<th>When</th><th>Version</th><th>Commit</th><th>Env</th><th>By</th></tr></thead>
+    <tbody>${items.map((d) => `<tr>
+      ${withStore ? `<td>${esc(d.storeId)}</td>` : ""}
+      <td>${fmtTime(d.deployedAt)}</td><td>${esc(d.version || "—")}</td>
+      <td><code>${esc(d.gitCommit || "—")}</code></td><td>${esc(d.environment)}</td><td>${esc(d.deployedBy)}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
 /* ---------- create store ---------- */
 async function showCreate() {
-  current = null; renderList();
+  current = null; renderList(); $("navDash").classList.remove("active");
   let industries = [];
   try { industries = (await api("/industries")).industries; } catch (e) {}
   $("main").innerHTML = `
   <div class="card">
     <h2>Create a new store</h2>
-    <p class="muted">Provisions the database, settings, admin user and starter categories.
+    <p class="muted">Provisions the database, settings, admin user and starter categories,
+    then registers the store in the platform database (and the fleet registry).
     Env files + deployment are step 2 (docs/DEPLOYMENT.md).</p>
     <div class="grid2">
       <div><label>Store name</label><input type="text" id="c_name" placeholder="KickCo" /></div>
       <div><label>Store id (lowercase, dashes)</label><input type="text" id="c_id" placeholder="kickco" /></div>
       <div><label>Industry preset</label>
         <select id="c_industry"><option value="">— none (generic) —</option>
-        ${industries.map((i) => `<option>${i}</option>`).join("")}</select></div>
+        ${industries.map((i) => `<option>${esc(i)}</option>`).join("")}</select></div>
       <div><label>Admin email</label><input type="email" id="c_email" placeholder="owner@kickco.com" /></div>
       <div><label>WhatsApp number (optional)</label><input type="text" id="c_wa" placeholder="9198xxxxxxxx" /></div>
       <div><label>Database name (optional)</label><input type="text" id="c_db" placeholder="vce-kickco" /></div>
@@ -194,97 +300,156 @@ const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsap
 const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
 const LOCKS = ["identity", "theme", "layout", "payment", "features", "seo", "stats", "content"];
 const COLORS = ["cream", "sand", "card", "ink", "muted", "accent", "accent-hover", "hairline"];
+const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Operations", "Security"];
 
 async function openStore(id) {
-  current = id; renderList();
+  current = id; renderList(); $("navDash").classList.remove("active");
   $("main").innerHTML = '<p class="muted">Loading store…</p>';
   try {
-    const d = await api(`/stores/${id}/settings`);
-    S = d.settings;
+    const [s, dep, act] = await Promise.all([
+      api(`/stores/${id}/settings`),
+      api(`/stores/${id}/deployments`).catch(() => ({ deployments: [] })),
+      api(`/activity?storeId=${encodeURIComponent(id)}&limit=20`).catch(() => ({ activity: [] })),
+    ]);
+    S = s.settings; storeMeta = s.store;
+    storeDeployments = dep.deployments || [];
+    storeActivity = act.activity || [];
     renderEditor(id);
   } catch (e) {
-    $("main").innerHTML = `<div class="card"><h2>Error</h2><p>${e.message}</p></div>`;
+    $("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`;
   }
 }
 
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.dataset.tab === name));
+}
+
 function renderEditor(id) {
-  const meta = stores.find((s) => s.id === id) || {};
+  const meta = storeMeta || {};
   const theme = S.theme || {}; const colors = theme.colors || {}; const fonts = theme.fonts || {};
   const feats = S.features || {}; const pay = S.payment || {}; const locks = S.lockedSections || [];
   const stats = S.stats || [];
   $("main").innerHTML = `
-  <div class="row" style="justify-content:space-between; margin-bottom:14px">
-    <div><b style="font-size:17px">${S.storeName || meta.name || id}</b>
-      <span class="muted"> · db ${meta.db || ""} · <a href="${meta.clientUrl || "#"}" target="_blank">storefront</a></span></div>
+  <div class="row" style="justify-content:space-between; margin-bottom:10px">
+    <div><b style="font-size:17px">${esc(S.storeName || meta.name || id)}</b>
+      ${meta.status ? `<span class="status ${esc(meta.status)}">${esc(meta.status)}</span>` : ""}
+      <span class="muted"> · ${esc(meta.db || "")} · source ${esc(meta.source || "")}${meta.clientUrl ? ` · <a href="${esc(meta.clientUrl)}" target="_blank">storefront</a>` : ""}</span></div>
     <button onclick="save('${id}')">Save all changes</button>
   </div>
-  <div class="locknote">Locked sections are hidden from the client's admin and write-protected in the store API — only this panel changes them.</div>
 
-  <div class="card"><h2>Agency locks</h2>
-    <div class="checks">${LOCKS.map((k) =>
-      `<label><input type="checkbox" data-lock="${k}" ${locks.includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+  <div class="tabs">${TABS.map((t, i) => `<button class="tab ${i === 0 ? "active" : ""}" data-tab="${t}" onclick="showTab('${t}')">${t}</button>`).join("")}</div>
+
+  <!-- OVERVIEW -->
+  <div class="tab-panel active" data-tab="Overview">
+    <div class="card"><h2>Store metadata <span class="muted">(platform database)</span></h2>
+      <div class="kv">
+        <span class="k">Store id</span><span>${esc(meta.id || id)}</span>
+        <span class="k">Database</span><span>${esc(meta.db || "")}</span>
+        <span class="k">Industry</span><span>${esc(meta.industry || "—")}</span>
+        <span class="k">Status</span><span><span class="status ${esc(meta.status || "active")}">${esc(meta.status || "active")}</span></span>
+        <span class="k">Domain</span><span>${meta.clientUrl ? `<a href="${esc(meta.clientUrl)}" target="_blank">${esc(meta.clientUrl)}</a>` : "—"}</span>
+        <span class="k">Current version</span><span>${esc(meta.currentVersion || "—")}</span>
+        <span class="k">Registered</span><span>${meta.createdAt ? fmtTime(meta.createdAt) : "—"}</span>
+        <span class="k">Source</span><span>${esc(meta.source || "")}</span>
+      </div>
+      ${meta.source === "fleet" ? '<p class="muted" style="margin-top:10px">This store is resolved from the fleet registry — it is not yet in the platform database.</p>' : ""}
+    </div>
+    <div class="card"><h2>Recent activity</h2>${renderActivityList(storeActivity)}</div>
+  </div>
+
+  <!-- APPEARANCE -->
+  <div class="tab-panel" data-tab="Appearance">
+    <div class="card"><h2>Theme — colors</h2>
+      <div class="grid4">${COLORS.map((k) => `
+        <div><label>${k}</label><div class="swatch-row">
+          <input type="color" data-colorpick="${k}" value="${colors[k] || "#ffffff"}"/>
+          <input type="text" data-color="${k}" value="${esc(colors[k] || "")}" placeholder="default"/>
+        </div></div>`).join("")}
+      </div>
+    </div>
+    <div class="card"><h2>Typography, tokens &amp; motion</h2>
+      <div class="grid2">
+        <div><label>Body font stack</label><input type="text" id="f_fontBody" value="${esc(fonts.body || "")}"/></div>
+        <div><label>Display font stack</label><input type="text" id="f_fontDisplay" value="${esc(fonts.display || "")}"/></div>
+        <div><label>Google families (comma-separated css2 specs)</label>
+          <input type="text" id="f_fontGoogle" value="${esc((fonts.googleFamilies || []).join(", "))}"/></div>
+        <div><label>Motion</label><select id="f_motion">
+          <option value="full" ${theme.motion !== "reduced" ? "selected" : ""}>full</option>
+          <option value="reduced" ${theme.motion === "reduced" ? "selected" : ""}>reduced</option></select></div>
+      </div>
+      <label>Design tokens (JSON — radius/tracking/density, see docs/THEMING.md)</label>
+      <textarea id="f_tokens" rows="4">${esc(JSON.stringify(theme.tokens || {}, null, 1))}</textarea>
+    </div>
+    <div class="card"><h2>Layout</h2>
+      <label>Homepage</label>
+      <select id="f_layoutHome">${["editorial", "catalog", "minimal"].map((v) =>
+        `<option ${((S.layout || {}).home || "editorial") === v ? "selected" : ""}>${v}</option>`).join("")}</select>
     </div>
   </div>
 
-  <div class="card"><h2>Identity</h2>
-    <div class="grid2">
-      <div><label>Store name</label><input type="text" id="f_storeName" value="${S.storeName || ""}"/></div>
-      <div><label>Variant label</label><input type="text" id="f_variantLabel" value="${S.variantLabel || ""}" placeholder="Shade / Size / Flavor"/></div>
-      <div><label>WhatsApp number</label><input type="text" id="f_whatsappNumber" value="${S.whatsappNumber || ""}"/></div>
-      <div><label>Contact email</label><input type="text" id="f_contactEmail" value="${S.contactEmail || ""}"/></div>
-      <div><label>Hero heading</label><input type="text" id="f_heroHeading" value="${(S.heroHeading || "").replace(/"/g, "&quot;")}"/></div>
-      <div><label>Hero subheading</label><input type="text" id="f_heroSubheading" value="${(S.heroSubheading || "").replace(/"/g, "&quot;")}"/></div>
+  <!-- COMMERCE -->
+  <div class="tab-panel" data-tab="Commerce">
+    <div class="card"><h2>Payment</h2>
+      <div class="checks">${PROVIDERS.map((k) =>
+        `<label><input type="checkbox" data-prov="${k}" ${(pay.enabledProviders || []).includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+      </div>
+      <label>Default method</label>
+      <select id="f_defaultProvider">${PROVIDERS.map((k) =>
+        `<option ${pay.defaultProvider === k ? "selected" : ""}>${k}</option>`).join("")}</select>
+      <p class="muted">Razorpay also needs RAZORPAY_* keys in that store's server env.</p>
     </div>
   </div>
 
-  <div class="card"><h2>Theme — colors</h2>
-    <div class="grid4">${COLORS.map((k) => `
-      <div><label>${k}</label><div class="swatch-row">
-        <input type="color" data-colorpick="${k}" value="${colors[k] || "#ffffff"}"/>
-        <input type="text" data-color="${k}" value="${colors[k] || ""}" placeholder="default"/>
-      </div></div>`).join("")}
+  <!-- CONTENT -->
+  <div class="tab-panel" data-tab="Content">
+    <div class="card"><h2>Identity</h2>
+      <div class="grid2">
+        <div><label>Store name</label><input type="text" id="f_storeName" value="${esc(S.storeName || "")}"/></div>
+        <div><label>Variant label</label><input type="text" id="f_variantLabel" value="${esc(S.variantLabel || "")}" placeholder="Shade / Size / Flavor"/></div>
+        <div><label>WhatsApp number</label><input type="text" id="f_whatsappNumber" value="${esc(S.whatsappNumber || "")}"/></div>
+        <div><label>Contact email</label><input type="text" id="f_contactEmail" value="${esc(S.contactEmail || "")}"/></div>
+        <div><label>Hero heading</label><input type="text" id="f_heroHeading" value="${esc(S.heroHeading || "")}"/></div>
+        <div><label>Hero subheading</label><input type="text" id="f_heroSubheading" value="${esc(S.heroSubheading || "")}"/></div>
+      </div>
     </div>
   </div>
 
-  <div class="card"><h2>Typography, tokens &amp; motion</h2>
-    <div class="grid2">
-      <div><label>Body font stack</label><input type="text" id="f_fontBody" value="${(fonts.body || "").replace(/"/g, "&quot;")}"/></div>
-      <div><label>Display font stack</label><input type="text" id="f_fontDisplay" value="${(fonts.display || "").replace(/"/g, "&quot;")}"/></div>
-      <div><label>Google families (comma-separated css2 specs)</label>
-        <input type="text" id="f_fontGoogle" value="${(fonts.googleFamilies || []).join(", ")}"/></div>
-      <div><label>Motion</label><select id="f_motion">
-        <option value="full" ${theme.motion !== "reduced" ? "selected" : ""}>full</option>
-        <option value="reduced" ${theme.motion === "reduced" ? "selected" : ""}>reduced</option></select></div>
+  <!-- FEATURES -->
+  <div class="tab-panel" data-tab="Features">
+    <div class="card"><h2>Features</h2>
+      <div class="checks">${FEATURES.map((k) =>
+        `<label><input type="checkbox" data-feat="${k}" ${feats[k] ? "checked" : ""}/> ${k}</label>`).join("")}
+      </div>
     </div>
-    <label>Design tokens (JSON — radius/tracking/density, see docs/THEMING.md)</label>
-    <textarea id="f_tokens" rows="4">${JSON.stringify(theme.tokens || {}, null, 1)}</textarea>
-  </div>
-
-  <div class="card"><h2>Layout</h2>
-    <label>Homepage</label>
-    <select id="f_layoutHome">${["editorial", "catalog", "minimal"].map((v) =>
-      `<option ${((S.layout || {}).home || "editorial") === v ? "selected" : ""}>${v}</option>`).join("")}</select>
-  </div>
-
-  <div class="card"><h2>Features</h2>
-    <div class="checks">${FEATURES.map((k) =>
-      `<label><input type="checkbox" data-feat="${k}" ${feats[k] ? "checked" : ""}/> ${k}</label>`).join("")}
+    <div class="card"><h2>Trust stats</h2>
+      <div id="statRows">${stats.map((st, i) => statRow(st, i)).join("")}</div>
+      <button class="secondary small" onclick="addStatRow()">+ Add stat</button>
     </div>
   </div>
 
-  <div class="card"><h2>Payment</h2>
-    <div class="checks">${PROVIDERS.map((k) =>
-      `<label><input type="checkbox" data-prov="${k}" ${(pay.enabledProviders || []).includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+  <!-- OPERATIONS -->
+  <div class="tab-panel" data-tab="Operations">
+    <div class="card"><h2>Record a deployment</h2>
+      <div class="grid3">
+        <div><label>Version / tag</label><input type="text" id="d_version" placeholder="v1.4.0"/></div>
+        <div><label>Git commit</label><input type="text" id="d_commit" placeholder="auto"/></div>
+        <div><label>Environment</label><select id="d_env"><option>production</option><option>staging</option></select></div>
+      </div>
+      <label>Notes</label><input type="text" id="d_notes" placeholder="What shipped"/>
+      <div style="margin-top:12px"><button onclick="recordDeployment('${id}')">Record deployment</button></div>
     </div>
-    <label>Default method</label>
-    <select id="f_defaultProvider">${PROVIDERS.map((k) =>
-      `<option ${pay.defaultProvider === k ? "selected" : ""}>${k}</option>`).join("")}</select>
-    <p class="muted">Razorpay also needs RAZORPAY_* keys in that store's server env.</p>
+    <div class="card"><h2>Deployment history</h2><div id="depTable">${renderDeployTable(storeDeployments, false)}</div></div>
   </div>
 
-  <div class="card"><h2>Trust stats</h2>
-    <div id="statRows">${stats.map((st, i) => statRow(st, i)).join("")}</div>
-    <button class="secondary small" onclick="addStatRow()">+ Add stat</button>
+  <!-- SECURITY -->
+  <div class="tab-panel" data-tab="Security">
+    <div class="locknote">Locked sections are hidden from the client's admin and write-protected in the store API — only this panel changes them.</div>
+    <div class="card"><h2>Agency locks</h2>
+      <div class="checks">${LOCKS.map((k) =>
+        `<label><input type="checkbox" data-lock="${k}" ${locks.includes(k) ? "checked" : ""}/> ${k}</label>`).join("")}
+      </div>
+    </div>
   </div>
 
   <div style="margin: 10px 0 40px"><button onclick="save('${id}')">Save all changes</button></div>`;
@@ -294,18 +459,39 @@ function renderEditor(id) {
       document.querySelector(`[data-color="${p.dataset.colorpick}"]`).value = p.value;
     })
   );
+  // Prefill deployment commit with the current repo commit.
+  api("/git-commit").then((d) => { if (d.commit && $("d_commit") && !$("d_commit").value) $("d_commit").value = d.commit; }).catch(() => {});
 }
 
 const statRow = (st, i) => `
   <div class="stat-row" data-stat>
     <input type="number" value="${st.value ?? 0}" data-sv placeholder="Number"/>
-    <input type="text" value="${st.suffix || ""}" data-ss placeholder="+"/>
-    <input type="text" value="${(st.label || "").replace(/"/g, "&quot;")}" data-sl placeholder="Happy Customers"/>
+    <input type="text" value="${esc(st.suffix || "")}" data-ss placeholder="+"/>
+    <input type="text" value="${esc(st.label || "")}" data-sl placeholder="Happy Customers"/>
     <button onclick="this.parentElement.remove()">✕</button>
   </div>`;
 
 function addStatRow() {
   $("statRows").insertAdjacentHTML("beforeend", statRow({ value: 0, suffix: "+", label: "" }));
+}
+
+async function recordDeployment(id) {
+  try {
+    await api(`/stores/${id}/deployments`, {
+      method: "POST",
+      body: JSON.stringify({
+        version: $("d_version").value.trim(),
+        gitCommit: $("d_commit").value.trim(),
+        environment: $("d_env").value,
+        notes: $("d_notes").value.trim(),
+      }),
+    });
+    const dep = await api(`/stores/${id}/deployments`);
+    storeDeployments = dep.deployments || [];
+    $("depTable").innerHTML = renderDeployTable(storeDeployments, false);
+    $("d_version").value = ""; $("d_notes").value = "";
+    toast("✅ Deployment recorded");
+  } catch (e) { toast("❌ " + e.message); }
 }
 
 async function save(id) {
@@ -358,6 +544,8 @@ async function save(id) {
   try {
     const d = await api(`/stores/${id}/settings`, { method: "PUT", body: JSON.stringify(body) });
     S = d.settings;
+    // refresh the per-store activity feed shown on Overview
+    api(`/activity?storeId=${encodeURIComponent(id)}&limit=20`).then((a) => { storeActivity = a.activity || []; }).catch(() => {});
     toast("✅ Saved — live on the storefront now");
   } catch (e) {
     toast("❌ " + e.message);

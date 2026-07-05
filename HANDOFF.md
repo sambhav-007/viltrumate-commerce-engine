@@ -8,7 +8,7 @@ Context handout for picking up the **Viltrumate Commerce Engine (VCE)**. Read th
 
 A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-brand cosmetics store (Aura Rare) and generalized so one codebase can power many client storefronts.
 
-- **Architecture model:** _shared codebase + a separate database per store._ Each store runs the same code pointed at its own DB, with its own `.env` and `StoreSettings`. This is **not** row-level multi-tenancy — tenant routing is intentionally **not** built.
+- **Architecture model:** _shared codebase + a separate database per store + one agency Platform Database._ Each store runs the same code pointed at its own DB, with its own `.env` and `StoreSettings`. A dedicated **`vce_platform`** database holds agency metadata only (stores, operators, deployments, activity log) and is the VCE Panel's source of truth. This is **not** row-level multi-tenancy — tenant routing is intentionally **not** built.
 - **Stack:** React 16 (CRA) · Express · MongoDB + Mongoose 5 · Cloudinary · JWT admin auth.
 - **Checkout:** WhatsApp + COD (record every order); Razorpay (online payment) wired; Stripe still a stub.
 
@@ -39,6 +39,18 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 5. **Η fleet ops** — `backupDb.js`/`restoreDb.js` (EJSON .jsonl, explicit-target restore), `fleet.js` (list/health/backup/reapply) over gitignored `fleet.json` registry, `docs/DEPLOYMENT.md`. Commit `dc3d7a4`.
 6. **Θ growth** — `/sitemap.xml` (server-generated), `usePageSeo` + Product/Offer JSON-LD on PDP, resume-cart bar. Commit `0c3a224`.
 7. **Aura back-port wave** (from `aura-rare-beauty` commits `03c282a`/`6e3c1a5`/`158d610`+/`75eed12`/`5c4ec01`/`64fa8b3`, generalized for VCE): intro curtain preloader (content-slot tag line, skips admin/reduced-motion); trust-stats band — **admin-editable** via `StoreSettings.stats` (aura hardcodes them) + count-up on scroll, `stats` section in all three layouts; drag-to-reorder categories & variants (`useRowDnd`, `order` field, PATCH reorder endpoints, append-on-create); banner slideshow hero (contain, ¾-height band, dots) + clean single-image hero + solid navbar; desktop nav hover flyout previewing collections/products. Browser-verified against the running dev store.
+8. **VCE Panel** — agency control plane (`server/panel.js` + `server/panel/ui.html`, `npm run panel` → :8100): create stores and manage every store's theme/typography/layout/payment/features/trust-stats/section-locks across all fleet databases, bypassing each client's admin. Gated on `PANEL_KEY`. Commit `5f4928e`. `docs/PANEL.md`.
+
+**This session (Phase Ι — Platform Database Migration):**
+- **Dedicated Platform Database (`vce_platform`)** — the agency's single source of truth, **metadata only** (never products/orders/customers). New `server/platform/` module: `schemas.js` (Store, Operator, ActivityLog, Deployment) + `index.js` (lazy dedicated mongoose connection, `logActivity`/`upsertStore` helpers). Store's `databaseName` is now authoritative.
+- **Env split:** `PLATFORM_DATABASE` (…/`vce_platform`) for agency metadata; `PROVISION_CLUSTER_URI` (no db name) still only reaches individual store DBs. Documented in `server/.env.example`.
+- **Fleet migration w/ fallback:** panel resolves a store **platform-first, fleet-fallback** (`resolveStore`). If in the platform `stores` collection → use it; else fall back to `provisioning/fleet.json` + manifest. With `PLATFORM_DATABASE` unset the panel behaves exactly as before. **JSON registry support retained** and still updated on create.
+- **Store creation** now: (1) provisions the store DB as before, (2) registers the store in the platform DB (`status` provisioning→active, or error on failure), (3) still writes the fleet registry.
+- **Audit + deployments:** every panel action appends an `activitylogs` event (Store created/provisioned, Theme updated, Typography changed, Feature enabled/disabled, Payment modified, Layout changed, Agency locks updated, Deployment completed, Operator created…), attributed to the `x-panel-operator`. New deployment endpoints + ledger.
+- **UI:** agency **Dashboard** (totals, active, by-industry, recent activity, latest deployments) + **store detail tabs** (Overview / Appearance / Commerce / Content / Features / Operations / Security).
+- **Operators:** `Operator` model + `scripts/createOperator.js` + panel CRUD (panel still gates on `PANEL_KEY`; operators are recorded metadata + audit actor, a forward hook for real operator auth).
+- **Coexistence fix:** `withStoreDb` now closes only the default (store) connection (`mongoose.connection.close()`), not `mongoose.disconnect()`, so the persistent platform connection survives per-store cycles.
+- **Verified:** 22/22 end-to-end checks against a live cluster on an isolated `vce_platform_verify` + throwaway store DB (auth gate, platform registration, provisioning, settings edit, activity logging incl. operator attribution, deployment record + list, dashboard aggregation, duplicate guard, operator create + password redaction, **fleet fallback** via the existing `x123` registry entry). Test DBs dropped, fleet.json restored. Browser DOM pass of the new dashboard/tabs still recommended.
 
 ## 4. Capability matrix (current)
 
@@ -66,6 +78,10 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | SEO (sitemap.xml, per-product meta + JSON-LD) | ✅ built |
 | Resume-cart nudge | ✅ built |
 | Responsive admin (mobile) | ✅ verified at 375px |
+| VCE Panel (agency control plane) | ✅ built |
+| Platform Database (`vce_platform`: stores/operators/deployments/activity) | ✅ 22/22 e2e-verified on isolated DB; browser DOM pass pending |
+| Panel dashboard + store-detail tabs | ✅ built + API-verified; browser DOM pass pending |
+| Fleet→platform resolution (platform-first, JSON fallback) | ✅ verified (incl. fallback) |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -83,6 +99,8 @@ cd server && npm run start:dev          # API :8000
 cd client && npm start                  # storefront+admin :3000  (admin: /admin/login)
 ```
 Provision a new client store: fill `server/provisioning/client-manifest.example.json` → `node scripts/provision.js <manifest>` (generates both `.env` files, seeds `StoreSettings`, creates admin, loads catalog preset). See `docs/PROVISIONING.md`.
+
+**VCE Panel (agency control plane):** set `PLATFORM_DATABASE` (…/`vce_platform`) + `PROVISION_CLUSTER_URI` (cluster root, no db name) + optional `PANEL_KEY` in `server/.env`, then `cd server && npm run panel` → http://localhost:8100. Seed agency users with `node scripts/createOperator.js <email> <pw> [name] [role]`. With `PLATFORM_DATABASE` unset the panel falls back to the fleet registry. See `docs/PANEL.md`.
 
 **Windows DNS:** `mongodb+srv` SRV lookup can fail; the shared db helper points the resolver at public DNS by default (`DNS_SERVERS=...`, or `off`).
 
@@ -115,4 +133,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of the Γ→Θ roadmap wave (payments provisioning, 3B tokens, industry presets + layouts, merchant ops, fleet ops, growth/SEO). Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT._
+_Last updated: end of Phase Ι — Platform Database Migration (`vce_platform`: stores/operators/deployments/activity as the panel's source of truth; platform-first + fleet-fallback resolution; dashboard + store tabs; deployment ledger). Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._
