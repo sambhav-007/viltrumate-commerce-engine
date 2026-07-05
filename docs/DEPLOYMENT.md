@@ -69,3 +69,17 @@ cron) and sync the `backups/` directory somewhere off-machine.
   and coupon validation; JWT admin auth; per-store CORS origins.
 - Secrets live only in env (server) — `client/.env` carries `REACT_APP_*` only.
 - The DB helper suppresses the DEP0170 URI-leaking warning so credentials stay out of logs.
+
+## Release verification (Phase Ν)
+
+Before and after a deploy, work through **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)**:
+
+- **Tests:** `cd server && npm test` (green; run with a test cluster so integration executes).
+- **Version:** confirm the store is up-to-date in Panel → **Updates** (or run the Update Wizard,
+  backup first); `GET /api/platform` shows the expected VCE version.
+- **Diagnostics:** Panel → **Diagnostics** (or `GET /api/diagnostics`) — platform DB connected,
+  cluster reachable, Cloudinary + payments configured, migrations current.
+- **Health:** panel `GET /health` + `GET /ready` (200); store `GET /api/health` (200); then verify
+  the store against its generated `healthcheck.json`.
+
+See **[QUALITY.md](QUALITY.md)** for the full testing/diagnostics reference.

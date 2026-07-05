@@ -188,6 +188,20 @@ Endpoints: `GET /api/templates`, `POST /api/templates/import`, `GET/PUT/DELETE /
 `GET …/:tid/export`, `GET …/:tid/preview`, `POST /api/stores/:id/template`,
 `POST /api/stores/:id/clone`, and `POST /api/stores` with `template`.
 
+## Diagnostics & health (Phase Ν)
+
+- **Diagnostics** (sidebar → **Diagnostics**, or `GET /api/diagnostics`): read-only status of the
+  platform DB, store-cluster reachability + store count, Cloudinary config, payment-provider
+  config, deployment providers, migration status, and app/VCE version.
+- **Health endpoints** (unauthenticated, structured JSON): `GET /health` (liveness) and
+  `GET /ready` (readiness — 200 when the platform DB is reachable, else 503).
+- **Logging**: JSON lines with secret redaction and dev-only stack traces; every request carries
+  an `x-request-id`. Unknown `/api` routes return a 404 JSON; a final error middleware guarantees
+  graceful JSON failure.
+
+See **[QUALITY.md](QUALITY.md)** for the test suite and **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)**
+for the pre-ship checklist.
+
 ## How it works
 
 - Source of truth: the **platform database** (`stores` collection). Legacy registry

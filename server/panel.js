@@ -51,6 +51,13 @@ const { checkCompatibility } = require("./platform/migrations/compatibility");
 const templates = require("./platform/templates");
 const { snapshotStore, writeClone } = require("./platform/clone");
 const { baseSlug } = require("./config/slug");
+const { logInfo, logError } = require("./config/logger");
+
+const APP_VERSION = require("./package.json").version;
+
+// Never let a stray rejection/exception take the panel down silently.
+process.on("unhandledRejection", (reason) => logError("panel", reason, {}));
+process.on("uncaughtException", (err) => logError("panel", err, {}));
 
 // The VCE update state of a platform Store doc, from its VCE version.
 function updateStateFor(doc) {
@@ -179,6 +186,35 @@ const safeId = (v) => (mongoose.Types.ObjectId.isValid(v) ? v : "000000000000000
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
+// Attach a request id (from the caller or generated) for correlated logging.
+app.use((req, res, next) => {
+  req.id = req.headers["x-request-id"] || crypto.randomUUID();
+  res.setHeader("x-request-id", req.id);
+  next();
+});
+
+// Monitoring endpoints — UNAUTHENTICATED, structured JSON. /health is liveness
+// (process up); /ready is readiness (platform DB reachable when configured).
+app.get("/health", (req, res) =>
+  res.json({ status: "ok", service: "vce-panel", version: APP_VERSION, uptime: process.uptime(), ts: new Date().toISOString() })
+);
+app.get("/ready", async (req, res) => {
+  const out = { status: "ready", platformConfigured: platformConfigured(), ts: new Date().toISOString() };
+  try {
+    if (platformConfigured()) {
+      const p = platform();
+      out.platformDb = p.connection.readyState === 1 ? "connected" : "connecting";
+      if (p.connection.readyState !== 1) { out.status = "not-ready"; return res.status(503).json(out); }
+    } else {
+      out.platformDb = "unconfigured";
+    }
+    res.json(out);
+  } catch (err) {
+    logError("panel", err, { requestId: req.id });
+    res.status(503).json({ status: "not-ready", error: "readiness check failed", ts: new Date().toISOString() });
+  }
+});
+
 // UI (no auth — it holds no data; every API call carries the key).
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "panel", "ui.html")));
 
@@ -204,6 +240,47 @@ app.get("/api/platform", (req, res) =>
     migrations: listMigrations().map((m) => ({ version: m.version, description: m.description })),
   })
 );
+
+// GET /api/diagnostics -> read-only system diagnostics for the panel.
+app.get("/api/diagnostics", async (req, res) => {
+  const env = process.env;
+  const diag = {
+    application: { vceVersion: CURRENT_VCE_VERSION, appVersion: APP_VERSION, node: process.version, uptime: process.uptime() },
+    platformDatabase: { configured: platformConfigured(), status: "unknown" },
+    storeDatabase: { clusterConfigured: !!env.PROVISION_CLUSTER_URI, status: "unknown", stores: 0 },
+    cloudinary: {
+      configured: !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET),
+      cloudName: env.CLOUDINARY_CLOUD_NAME || "",
+    },
+    payments: {
+      razorpay: !!(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
+      razorpayWebhook: !!env.RAZORPAY_WEBHOOK_SECRET,
+      keyId: env.RAZORPAY_KEY_ID ? env.RAZORPAY_KEY_ID.slice(0, 8) + "…" : "",
+    },
+    deployment: { providers: listProviders() },
+    migrations: { current: CURRENT_VCE_VERSION, count: listMigrations().length, storesNeedingUpdate: 0 },
+  };
+  try {
+    if (platformConfigured()) {
+      const p = platform();
+      const rs = p.connection.readyState; // 1 = connected
+      diag.platformDatabase.status = rs === 1 ? "connected" : rs === 2 ? "connecting" : "disconnected";
+      if (rs === 1) {
+        // Cluster reachability doubles as store-database reachability (same cluster).
+        await p.connection.db.admin().ping();
+        diag.storeDatabase.status = "reachable";
+        const stores = await p.Store.find({}, { currentVersion: 1 });
+        diag.storeDatabase.stores = stores.length;
+        diag.migrations.storesNeedingUpdate = stores.filter((s) => pendingFor(s.currentVersion).length).length;
+      }
+    }
+  } catch (err) {
+    logError("panel", err, { requestId: req.id });
+    diag.platformDatabase.status = "error";
+    diag.storeDatabase.status = "unreachable";
+  }
+  res.json({ diagnostics: diag });
+});
 
 // GET /api/dashboard -> agency overview (platform db; fleet-count fallback)
 app.get("/api/dashboard", async (req, res) => {
@@ -1219,6 +1296,18 @@ app.post("/api/stores/:id/update", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: `Update failed: ${err.message}` });
   }
+});
+
+// Unknown /api route -> consistent 404 JSON (not the HTML UI fallthrough).
+app.use("/api", (req, res) => res.status(404).json({ error: `Unknown endpoint: ${req.method} ${req.path}` }));
+
+// Final safety net — any error that escapes a handler is logged (secret-redacted,
+// stack in dev only) and returned as consistent JSON. Guarantees graceful failure.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  logError("panel", err, { requestId: req && req.id });
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({ error: "Internal error", requestId: req && req.id });
 });
 
 app.listen(PORT, () => {

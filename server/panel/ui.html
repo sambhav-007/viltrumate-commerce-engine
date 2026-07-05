@@ -121,6 +121,7 @@
   <aside>
     <div class="nav-item" id="navDash" onclick="showDashboard()">📊 Dashboard</div>
     <div class="nav-item" id="navTpl" onclick="showTemplates()">🧩 Templates</div>
+    <div class="nav-item" id="navDiag" onclick="showDiagnostics()">🩺 Diagnostics</div>
     <button style="width:100%; margin:6px 0 12px" onclick="showCreate()">+ New store</button>
     <div id="storeList"></div>
   </aside>
@@ -199,7 +200,7 @@ function renderList() {
 
 /* ---------- dashboard ---------- */
 function setNav(id) {
-  ["navDash", "navTpl"].forEach((n) => $(n) && $(n).classList.toggle("active", n === id));
+  ["navDash", "navTpl", "navDiag"].forEach((n) => $(n) && $(n).classList.toggle("active", n === id));
 }
 
 async function showDashboard() {
@@ -444,6 +445,46 @@ function importTemplate() {
     }
   };
   input.click();
+}
+
+/* ---------- diagnostics (Phase Ν) ---------- */
+async function showDiagnostics() {
+  current = null; renderList(); setNav("navDiag");
+  $("main").innerHTML = '<p class="muted">Running diagnostics…</p>';
+  let d;
+  try { d = (await api("/diagnostics")).diagnostics; }
+  catch (e) { return ($("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`); }
+  const dot = (ok, warn) => `<span style="color:${ok ? "#047857" : warn ? "var(--amber)" : "var(--danger)"}">${ok ? "✅" : warn ? "⚠️" : "❌"}</span>`;
+  const row = (k, v) => `<span class="k">${esc(k)}</span><span>${v}</span>`;
+  $("main").innerHTML = `
+  <div class="row" style="justify-content:space-between;margin-bottom:14px">
+    <div><b style="font-size:17px">Diagnostics</b> <span class="muted">· read-only system status</span></div>
+    <button class="secondary" onclick="showDiagnostics()">Refresh</button>
+  </div>
+  <div class="card"><h2>Application</h2><div class="kv">
+    ${row("VCE version", "v" + esc(d.application.vceVersion))}
+    ${row("App version", esc(d.application.appVersion))}
+    ${row("Node", esc(d.application.node))}
+    ${row("Uptime", Math.round(d.application.uptime) + "s")}
+  </div></div>
+  <div class="card"><h2>Databases</h2><div class="kv">
+    ${row("Platform DB configured", dot(d.platformDatabase.configured))}
+    ${row("Platform DB status", dot(d.platformDatabase.status === "connected") + " " + esc(d.platformDatabase.status))}
+    ${row("Store cluster configured", dot(d.storeDatabase.clusterConfigured))}
+    ${row("Store DB reachability", dot(d.storeDatabase.status === "reachable") + " " + esc(d.storeDatabase.status))}
+    ${row("Registered stores", d.storeDatabase.stores)}
+  </div></div>
+  <div class="card"><h2>Integrations</h2><div class="kv">
+    ${row("Cloudinary", dot(d.cloudinary.configured) + " " + (d.cloudinary.configured ? esc(d.cloudinary.cloudName) : "not configured"))}
+    ${row("Razorpay", dot(d.payments.razorpay, true) + " " + (d.payments.razorpay ? esc(d.payments.keyId) : "not configured"))}
+    ${row("Razorpay webhook", dot(d.payments.razorpayWebhook, true) + " " + (d.payments.razorpayWebhook ? "set" : "not set"))}
+    ${row("Deployment providers", (d.deployment.providers || []).map((x) => `<span class="pill">${esc(x)}</span>`).join(" "))}
+  </div></div>
+  <div class="card"><h2>Migrations</h2><div class="kv">
+    ${row("Current migration", "v" + esc(d.migrations.current))}
+    ${row("Registered migrations", d.migrations.count)}
+    ${row("Stores needing update", dot(d.migrations.storesNeedingUpdate === 0, d.migrations.storesNeedingUpdate > 0) + " " + d.migrations.storesNeedingUpdate)}
+  </div></div>`;
 }
 
 /* ---------- store editor ---------- */

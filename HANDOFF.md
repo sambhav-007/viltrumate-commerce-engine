@@ -91,6 +91,15 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 - **Panel UI** — Templates gallery (sidebar), per-template preview/export/delete/"new store", Import JSON; store Overview **Actions** (Create template / Clone store); create-store **Start from** selector (Blank / Industry / Template).
 - **Verified:** 39/39 end-to-end on an isolated platform + throwaway store DBs (template saved + v1.0.0 + sourceStoreId, config has categories/theme and **no merchant data**, provision-from-template imports categories/settings + fresh admin + no products/orders + usageCount++, **clone copies products/variants/categories with stock reset but excludes orders/reviews and the customer user**, versioning 1.0.0→1.0.1 + history, export JSON has no secrets, import creates a unique slug, **import with merchant data rejected 422**, preview returns theme/nav/features, all six template activity actions logged). Module unit tests (validate/preview) passed. All test DBs dropped, manifests removed, fleet.json restored. Browser DOM pass still recommended.
 
+**This session (Phase Ν — Quality Assurance, Testing & Release Candidate):**
+- **Test framework** — Node's built-in runner (`node:test`, zero new deps). `server/test/` = `unit/` (pure, always run), `integration/` (DB-gated, auto-skip without `PROVISION_CLUSTER_URI`), `helpers/db.js` (isolated-DB derivation, panel spawn, repo snapshot/restore). Scripts: `npm test` / `test:unit` / `test:integration`. **57 tests pass** (38 unit + 6 commerce + 13 panel API); without a cluster the integration files skip so the suite stays green anywhere.
+- **Coverage** — platform: provisioning, deployment package gen, update manager/migrations, template create/import/export/preview, cloning, fleet fallback, activity logging, auth/validation, health/ready, diagnostics; commerce: products/categories/variants, inventory movements (feature-gated), coupons (`discountFor`), orders, StoreSettings; Razorpay signature/webhook verification (mocked, no network); logger redaction.
+- **Health endpoints (panel)** — `GET /health` (liveness) + `GET /ready` (readiness: platform-DB reachable → 200, else 503), unauthenticated structured JSON. (`app.js` already has `GET /api/health`.)
+- **Diagnostics** — `GET /api/diagnostics` + **Panel → Diagnostics** (read-only): app/VCE version, platform DB status, store-cluster reachability + store count, Cloudinary config, payment-provider config, deployment providers, migration status.
+- **Logging** — `server/config/logger.js`: one JSON line `{ ts, level, component, requestId?, message, stack? }`; **secret-redacted** (secret env values + mongodb URIs → `***`); **stack only outside production**. Panel now assigns an `x-request-id` per request, has a **404 JSON handler** + **final error middleware** (graceful failure), and `unhandledRejection`/`uncaughtException` handlers.
+- **Docs** — new `docs/QUALITY.md` (testing strategy / diagnostics / release workflow) + `docs/RELEASE_CHECKLIST.md`; PANEL/DEPLOYMENT updated.
+- **Verified:** full suite green against an isolated cluster (57/57); integration files skip cleanly with no cluster (2 skipped, 0 fail); all throwaway DBs dropped, `fleet.json` + manifests + deployment packages restored/removed (working tree clean). No new features or architecture changes.
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -130,6 +139,9 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Migration/update rollback | 🔲 not implemented by design — Store + MigrationLog carry metadata for later |
 | Store Templates (create from store, gallery, versioning, import/export, preview) | ✅ 39/39 e2e-verified on isolated DB; browser DOM pass pending |
 | Provision from template (Blank / Industry / Template) + clone store (fresh DB) | ✅ verified (merchant data excluded) |
+| Automated test suite (node:test; 57 tests, DB-gated integration) | ✅ 57/57 pass; skips w/o cluster |
+| Health endpoints (/health, /ready) + Diagnostics page + standardized logging | ✅ verified |
+| Release checklist + QUALITY.md | ✅ documented |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -181,4 +193,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Phase Μ — Store Templates & Cloning (reusable Template blueprints captured from stores; provision from Blank / Industry / Template; store cloning into a fresh DB; gallery, versioning, import/export with validation, preview; merchant data always excluded). Follows Phase Λ — Store Versioning & Update Manager, Phase Κ — Deployment Engine, Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._
+_Last updated: end of Phase Ν — Quality Assurance, Testing & Release Candidate (node:test suite — 57 tests, DB-gated integration; /health + /ready; Diagnostics page + endpoint; standardized secret-redacting logger + request IDs + error middleware; QUALITY.md + RELEASE_CHECKLIST.md). Follows Phase Μ — Store Templates & Cloning, Phase Λ — Update Manager, Phase Κ — Deployment Engine, Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL / QUALITY / RELEASE_CHECKLIST._
