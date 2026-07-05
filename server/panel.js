@@ -48,6 +48,9 @@ const { bumpVersion } = require("./platform/deploy/version");
 const { zipSync } = require("./platform/deploy/zip");
 const { list: listMigrations, pendingFor, cmp, CURRENT_VCE_VERSION } = require("./platform/migrations");
 const { checkCompatibility } = require("./platform/migrations/compatibility");
+const templates = require("./platform/templates");
+const { snapshotStore, writeClone } = require("./platform/clone");
+const { baseSlug } = require("./config/slug");
 
 // The VCE update state of a platform Store doc, from its VCE version.
 function updateStateFor(doc) {
@@ -167,6 +170,10 @@ const withStoreDb = (dbName, fn) => {
 };
 
 const operatorOf = (req) => req.headers["x-panel-operator"] || "panel";
+
+// A value usable as an _id match (real ObjectId if valid, else a non-matching
+// placeholder) so a slug-or-id $or lookup never throws a CastError.
+const safeId = (v) => (mongoose.Types.ObjectId.isValid(v) ? v : "000000000000000000000000");
 
 /* ---------- app ---------- */
 const app = express();
@@ -389,6 +396,15 @@ app.post("/api/stores", async (req, res) => {
       });
     }
 
+    // Provision mode: "blank" (default), "industry" preset, or "template".
+    let template = null;
+    if (req.body.template) {
+      const p = platform();
+      if (!p) return res.status(400).json({ error: "Templates require PLATFORM_DATABASE" });
+      template = await p.Template.findOne({ $or: [{ slug: req.body.template }, { _id: safeId(req.body.template) }] });
+      if (!template) return res.status(404).json({ error: `Template "${req.body.template}" not found` });
+    }
+
     const manifest = withDefaults({
       version: 1,
       store: {
@@ -444,11 +460,23 @@ app.post("/api/stores", async (req, res) => {
           password,
           name: manifest.admin.name,
         });
-        const preset = JSON.parse(
-          fs.readFileSync(path.join(__dirname, "provisioning", "presets", "empty.json"), "utf8")
-        );
-        if (categories.length) preset.categories = categories;
-        const counts = await seedCatalog(preset);
+        let counts;
+        if (template) {
+          // Template mode: import the blueprint's config + categories on top of
+          // the identity that applyStoreSettings just wrote.
+          const empty = JSON.parse(
+            fs.readFileSync(path.join(__dirname, "provisioning", "presets", "empty.json"), "utf8")
+          );
+          await seedCatalog(empty); // start from an empty catalog
+          const applied = await templates.applyTemplateConfig(template.config || {}, { categories: true });
+          counts = { categories: applied.categoriesCreated, products: 0, variants: 0 };
+        } else {
+          const preset = JSON.parse(
+            fs.readFileSync(path.join(__dirname, "provisioning", "presets", "empty.json"), "utf8")
+          );
+          if (categories.length) preset.categories = categories;
+          counts = await seedCatalog(preset);
+        }
         return { created, counts };
       });
     } catch (dbErr) {
@@ -483,8 +511,18 @@ app.post("/api/stores", async (req, res) => {
       operator: operatorOf(req),
       storeId: id,
       action: "Store provisioned",
-      metadata: { db: dbName, admin: adminEmail, catalog: result.counts },
+      metadata: { db: dbName, admin: adminEmail, catalog: result.counts, template: template ? template.slug : undefined },
     });
+    if (template) {
+      const p = platform();
+      await p.Template.updateOne({ _id: template._id }, { $inc: { usageCount: 1 } });
+      await logActivity({
+        operator: operatorOf(req),
+        storeId: id,
+        action: "Template used",
+        metadata: { template: template.slug, version: template.version },
+      });
+    }
 
     return res.json({
       success: `Store "${storeName}" provisioned`,
@@ -804,6 +842,242 @@ app.post("/api/stores/:id/deployments", async (req, res) => {
     res.json({ success: "Deployment recorded", deployment });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==================== Store Templates & Cloning (Phase Μ) ==================== */
+
+async function uniqueTemplateSlug(base) {
+  const p = platform();
+  const root = baseSlug(base) || "template";
+  let slug = root, n = 1;
+  while (await p.Template.findOne({ slug })) slug = `${root}-${++n}`;
+  return slug;
+}
+
+// GET /api/templates -> gallery list (summary fields, no full config)
+app.get("/api/templates", async (req, res) => {
+  const p = platform();
+  if (!p) return res.json({ templates: [] });
+  const docs = await p.Template.find({}, { config: 0 }).sort({ updatedAt: -1 });
+  res.json({ templates: docs });
+});
+
+// POST /api/templates/import -> validate + store an imported template JSON
+app.post("/api/templates/import", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Templates require PLATFORM_DATABASE" });
+  const obj = req.body && req.body.template ? req.body.template : req.body;
+  const validation = templates.validateImport(obj);
+  if (!validation.ok) return res.status(422).json({ error: "Invalid template", validation });
+  try {
+    const slug = await uniqueTemplateSlug(obj.slug || obj.name);
+    const doc = await p.Template.create({
+      name: obj.name,
+      slug,
+      description: obj.description || "",
+      industry: obj.industry || "",
+      thumbnail: obj.thumbnail || "",
+      tags: Array.isArray(obj.tags) ? obj.tags : [],
+      createdBy: operatorOf(req),
+      version: obj.version || "1.0.0",
+      visibility: ["private", "shared", "public"].includes(obj.visibility) ? obj.visibility : "private",
+      sourceStoreId: "",
+      config: obj.config || {},
+      versionHistory: [{ version: obj.version || "1.0.0", at: new Date(), by: operatorOf(req), note: "imported" }],
+    });
+    await logActivity({ operator: operatorOf(req), action: "Template imported", metadata: { template: doc.slug } });
+    res.json({ success: `Template "${doc.name}" imported`, template: { id: doc._id, slug: doc.slug, name: doc.name } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/templates/:tid -> full template (config included)
+app.get("/api/templates/:tid", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  const t = await p.Template.findOne({ $or: [{ slug: req.params.tid }, { _id: safeId(req.params.tid) }] });
+  if (!t) return res.status(404).json({ error: "Unknown template" });
+  res.json({ template: t });
+});
+
+// GET /api/templates/:tid/preview -> renderable preview (no provisioning)
+app.get("/api/templates/:tid/preview", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  const t = await p.Template.findOne({ $or: [{ slug: req.params.tid }, { _id: safeId(req.params.tid) }] });
+  if (!t) return res.status(404).json({ error: "Unknown template" });
+  res.json({ preview: templates.previewOf(t) });
+});
+
+// GET /api/templates/:tid/export -> download the template as JSON
+app.get("/api/templates/:tid/export", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  const t = await p.Template.findOne({ $or: [{ slug: req.params.tid }, { _id: safeId(req.params.tid) }] });
+  if (!t) return res.status(404).json({ error: "Unknown template" });
+  const out = {
+    name: t.name, slug: t.slug, description: t.description, industry: t.industry,
+    thumbnail: t.thumbnail, tags: t.tags, version: t.version, visibility: t.visibility,
+    config: t.config, exportedAt: new Date().toISOString(), vceTemplate: 1,
+  };
+  await logActivity({ operator: operatorOf(req), action: "Template exported", metadata: { template: t.slug } });
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="${t.slug}-template.json"`);
+  res.send(JSON.stringify(out, null, 2));
+});
+
+// PUT /api/templates/:tid -> edit; creates a new version entry (stores are NOT
+// auto-updated — a template edit never touches a provisioned store).
+app.put("/api/templates/:tid", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  try {
+    const t = await p.Template.findOne({ $or: [{ slug: req.params.tid }, { _id: safeId(req.params.tid) }] });
+    if (!t) return res.status(404).json({ error: "Unknown template" });
+    ["name", "description", "industry", "thumbnail", "visibility"].forEach((k) => {
+      if (req.body[k] !== undefined) t[k] = req.body[k];
+    });
+    if (Array.isArray(req.body.tags)) t.tags = req.body.tags;
+    if (req.body.config && typeof req.body.config === "object") t.config = req.body.config;
+    t.version = bumpVersion(t.version, req.body.bump || "patch");
+    t.versionHistory.push({ version: t.version, at: new Date(), by: operatorOf(req), note: req.body.note || "edited" });
+    await t.save();
+    await logActivity({ operator: operatorOf(req), action: "Template edited", metadata: { template: t.slug, version: t.version } });
+    res.json({ success: `Template updated to v${t.version}`, template: t });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/templates/:tid
+app.delete("/api/templates/:tid", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Platform database not configured" });
+  const t = await p.Template.findOne({ $or: [{ slug: req.params.tid }, { _id: safeId(req.params.tid) }] });
+  if (!t) return res.status(404).json({ error: "Unknown template" });
+  await p.Template.deleteOne({ _id: t._id });
+  await logActivity({ operator: operatorOf(req), action: "Template deleted", metadata: { template: t.slug } });
+  res.json({ success: `Template "${t.name}" deleted` });
+});
+
+// POST /api/stores/:id/template -> create a reusable template FROM a store.
+// body: { name, description?, visibility?, tags?, thumbnail?, include? }
+app.post("/api/stores/:id/template", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Templates require PLATFORM_DATABASE" });
+  try {
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    if (!req.body.name) return res.status(400).json({ error: "name is required" });
+    // Default: include everything reusable.
+    const include = req.body.include || templates.INCLUDE_KEYS.reduce((o, k) => ((o[k] = true), o), {});
+
+    const config = await withStoreDb(store.dbName, () => templates.buildTemplateConfig(include));
+    const slug = await uniqueTemplateSlug(req.body.name);
+    const version = "1.0.0";
+    const doc = await p.Template.create({
+      name: req.body.name,
+      slug,
+      description: req.body.description || "",
+      industry: store.meta.industry || "",
+      thumbnail: req.body.thumbnail || "",
+      tags: Array.isArray(req.body.tags) ? req.body.tags : [],
+      createdBy: operatorOf(req),
+      version,
+      visibility: ["private", "shared", "public"].includes(req.body.visibility) ? req.body.visibility : "private",
+      sourceStoreId: store.id,
+      config,
+      versionHistory: [{ version, at: new Date(), by: operatorOf(req), note: `created from ${store.id}` }],
+    });
+    await logActivity({
+      operator: operatorOf(req), storeId: store.id, action: "Template created",
+      metadata: { template: doc.slug, include: Object.keys(include).filter((k) => include[k]) },
+    });
+    res.json({ success: `Template "${doc.name}" created`, template: { id: doc._id, slug: doc.slug, name: doc.name, version } });
+  } catch (err) {
+    res.status(500).json({ error: `Create template failed: ${err.message}` });
+  }
+});
+
+// POST /api/stores/:id/clone -> clone a store into a NEW database. Never clones
+// merchant data; always provisions a fresh db + admin.
+// body: { id, storeName, adminEmail, whatsappNumber?, dbName?, options?, retry? }
+app.post("/api/stores/:id/clone", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Cloning requires PLATFORM_DATABASE" });
+  try {
+    const source = await resolveStore(req.params.id);
+    if (!source) return res.status(404).json({ error: "Unknown source store" });
+    const { id, storeName, adminEmail } = req.body;
+    if (!id || !/^[a-z0-9-]+$/.test(id)) {
+      return res.status(400).json({ error: "id is required (lowercase letters, digits, dashes)" });
+    }
+    if (!storeName || !adminEmail) return res.status(400).json({ error: "storeName and adminEmail are required" });
+    if ((await resolveStore(id)) && !req.body.retry) {
+      return res.status(409).json({ error: `Store "${id}" already exists — pass retry:true to re-run` });
+    }
+    const options = req.body.options || {
+      appearance: true, settings: true, content: true, categories: true, products: true, pages: true, navigation: true,
+    };
+
+    // 1. Snapshot the source store (its own db session).
+    const snapshot = await withStoreDb(source.dbName, () => snapshotStore(options));
+
+    // 2. Build + register the new store.
+    const manifest = withDefaults({
+      version: 1,
+      store: {
+        id,
+        industry: source.meta.industry || undefined,
+        identity: { storeName, whatsappNumber: req.body.whatsappNumber || "", contactEmail: adminEmail },
+      },
+      admin: { email: adminEmail, name: `${storeName} Admin` },
+      infrastructure: req.body.dbName ? { database: { name: req.body.dbName } } : {},
+    });
+    const dbName = manifest.infrastructure.database.name;
+    const domain = (manifest.infrastructure.client || {}).url || "";
+    fs.mkdirSync(STORES_DIR, { recursive: true });
+    fs.writeFileSync(path.join(STORES_DIR, `${id}.json`), JSON.stringify(manifest, null, 2) + "\n");
+    if (!readFleet().some((e) => e.id === id)) {
+      writeFleet([...readFleet(), { id, name: storeName, manifest: `./stores/${id}.json` }]);
+    }
+    await upsertStore({ storeId: id, name: storeName, slug: id, industry: source.meta.industry || "", databaseName: dbName, domain, status: "provisioning" });
+    await logActivity({ operator: operatorOf(req), storeId: id, action: "Store created", metadata: { storeName, clonedFrom: source.id } });
+
+    const password = crypto.randomBytes(12).toString("base64").replace(/[^a-zA-Z0-9]/g, "").slice(0, 14) + "9z";
+
+    // 3. Write the clone into the fresh db (+ fresh admin).
+    let counts;
+    try {
+      counts = await withStoreDb(dbName, async () => {
+        await applyStoreSettings(manifest); // base identity
+        const written = await writeClone(snapshot, options);
+        await createAdminUser({ email: adminEmail, password, name: manifest.admin.name });
+        return written;
+      });
+    } catch (dbErr) {
+      await upsertStore({ storeId: id, name: storeName, databaseName: dbName, status: "error" });
+      await logActivity({ operator: operatorOf(req), storeId: id, action: "Store provisioning failed", metadata: { error: dbErr.message } });
+      throw dbErr;
+    }
+
+    await upsertStore({
+      storeId: id, name: storeName, slug: id, industry: source.meta.industry || "", databaseName: dbName, domain,
+      status: "active", currentVersion: CURRENT_VCE_VERSION, previousVersion: "", lastUpdated: new Date(),
+      pendingMigrations: [], lastUpdateStatus: "success",
+    });
+    await logActivity({ operator: operatorOf(req), storeId: id, action: "Store cloned", metadata: { from: source.id, counts, options: Object.keys(options).filter((k) => options[k]) } });
+
+    res.json({
+      success: `Store "${storeName}" cloned from "${source.id}"`,
+      id, db: dbName, clonedFrom: source.id, counts,
+      admin: { email: adminEmail, password },
+      note: "Save the admin password now — it is not stored anywhere.",
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Clone failed: ${err.message}` });
   }
 });
 

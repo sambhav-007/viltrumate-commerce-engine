@@ -92,6 +92,11 @@
   .tab-panel.active { display: block; }
   .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
   .kv .k { color: var(--muted); }
+  /* templates */
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .tpl-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tpl-thumb { height: 96px; background: var(--accent-soft); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .tpl-body { padding: 12px 14px; }
 </style>
 </head>
 <body>
@@ -115,6 +120,7 @@
 <div class="wrap" id="app" style="display:none">
   <aside>
     <div class="nav-item" id="navDash" onclick="showDashboard()">📊 Dashboard</div>
+    <div class="nav-item" id="navTpl" onclick="showTemplates()">🧩 Templates</div>
     <button style="width:100%; margin:6px 0 12px" onclick="showCreate()">+ New store</button>
     <div id="storeList"></div>
   </aside>
@@ -192,9 +198,13 @@ function renderList() {
 }
 
 /* ---------- dashboard ---------- */
+function setNav(id) {
+  ["navDash", "navTpl"].forEach((n) => $(n) && $(n).classList.toggle("active", n === id));
+}
+
 async function showDashboard() {
   current = null; renderList();
-  $("navDash").classList.add("active");
+  setNav("navDash");
   $("main").innerHTML = '<p class="muted">Loading dashboard…</p>';
   let d;
   try { d = await api("/dashboard"); } catch (e) { return ($("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`); }
@@ -263,22 +273,33 @@ function renderDeployTable(items, withStore) {
 }
 
 /* ---------- create store ---------- */
-async function showCreate() {
-  current = null; renderList(); $("navDash").classList.remove("active");
-  let industries = [];
+async function showCreate(presetTemplate) {
+  current = null; renderList(); setNav("");
+  let industries = [], tpls = [];
   try { industries = (await api("/industries")).industries; } catch (e) {}
+  try { tpls = (await api("/templates")).templates; } catch (e) {}
+  const startMode = presetTemplate ? "template" : "blank";
   $("main").innerHTML = `
   <div class="card">
     <h2>Create a new store</h2>
     <p class="muted">Provisions the database, settings, admin user and starter categories,
     then registers the store in the platform database (and the fleet registry).
     Env files + deployment are step 2 (docs/DEPLOYMENT.md).</p>
+    <label>Start from</label>
+    <select id="c_mode" onchange="createModeChanged()">
+      <option value="blank" ${startMode === "blank" ? "selected" : ""}>Blank</option>
+      <option value="industry" ${startMode === "industry" ? "selected" : ""}>Industry preset</option>
+      <option value="template" ${startMode === "template" ? "selected" : ""}>Template</option>
+    </select>
     <div class="grid2">
       <div><label>Store name</label><input type="text" id="c_name" placeholder="KickCo" /></div>
       <div><label>Store id (lowercase, dashes)</label><input type="text" id="c_id" placeholder="kickco" /></div>
-      <div><label>Industry preset</label>
+      <div id="c_industryWrap" style="display:none"><label>Industry preset</label>
         <select id="c_industry"><option value="">— none (generic) —</option>
         ${industries.map((i) => `<option>${esc(i)}</option>`).join("")}</select></div>
+      <div id="c_templateWrap" style="display:none"><label>Template</label>
+        <select id="c_template"><option value="">— choose a template —</option>
+        ${tpls.map((t) => `<option value="${esc(t.slug)}" ${presetTemplate === t.slug ? "selected" : ""}>${esc(t.name)} (v${esc(t.version)})</option>`).join("")}</select></div>
       <div><label>Admin email</label><input type="email" id="c_email" placeholder="owner@kickco.com" /></div>
       <div><label>WhatsApp number (optional)</label><input type="text" id="c_wa" placeholder="9198xxxxxxxx" /></div>
       <div><label>Database name (optional)</label><input type="text" id="c_db" placeholder="vce-kickco" /></div>
@@ -291,17 +312,26 @@ async function showCreate() {
   $("c_name").addEventListener("input", () => {
     $("c_id").value = $("c_name").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   });
+  createModeChanged();
+}
+
+function createModeChanged() {
+  const mode = $("c_mode").value;
+  $("c_industryWrap").style.display = mode === "industry" ? "block" : "none";
+  $("c_templateWrap").style.display = mode === "template" ? "block" : "none";
 }
 
 async function createStore(retry = false) {
   const btn = $("c_go"); btn.disabled = true; btn.textContent = "Provisioning…";
+  const mode = $("c_mode").value;
   try {
     const d = await api("/stores", {
       method: "POST",
       body: JSON.stringify({
         id: $("c_id").value.trim(),
         storeName: $("c_name").value.trim(),
-        industry: $("c_industry").value || undefined,
+        industry: mode === "industry" ? ($("c_industry").value || undefined) : undefined,
+        template: mode === "template" ? ($("c_template").value || undefined) : undefined,
         adminEmail: $("c_email").value.trim(),
         whatsappNumber: $("c_wa").value.trim(),
         dbName: $("c_db").value.trim() || undefined,
@@ -323,6 +353,99 @@ async function createStore(retry = false) {
   btn.disabled = false; btn.textContent = "Provision store";
 }
 
+/* ---------- templates gallery (Phase Μ) ---------- */
+let templates = [];
+
+async function showTemplates() {
+  current = null; renderList(); setNav("navTpl");
+  $("main").innerHTML = '<p class="muted">Loading templates…</p>';
+  try { templates = (await api("/templates")).templates; }
+  catch (e) { return ($("main").innerHTML = `<div class="card"><h2>Error</h2><p>${esc(e.message)}</p></div>`); }
+  $("main").innerHTML = `
+  <div class="row" style="justify-content:space-between; margin-bottom:14px">
+    <div><b style="font-size:17px">Store templates</b> <span class="muted">· reusable blueprints (config only — never merchant data)</span></div>
+    <div class="row">
+      <button class="secondary" onclick="importTemplate()">Import JSON</button>
+    </div>
+  </div>
+  <div class="tpl-grid">${templates.map(templateCard).join("") || '<p class="muted">No templates yet. Open a store → Overview → “Create template”.</p>'}</div>
+  <div id="tplPreview"></div>`;
+}
+
+function templateCard(t) {
+  return `<div class="tpl-card">
+    <div class="tpl-thumb" style="${t.thumbnail ? `background-image:url('${esc(t.thumbnail)}')` : ""}">${t.thumbnail ? "" : "🧩"}</div>
+    <div class="tpl-body">
+      <div><b>${esc(t.name)}</b> <span class="pill">v${esc(t.version)}</span></div>
+      <div class="muted">${t.industry ? esc(t.industry) + " · " : ""}used ${t.usageCount || 0}× · ${fmtTime(t.updatedAt)}</div>
+      ${t.description ? `<div style="font-size:12px;margin-top:4px">${esc(t.description)}</div>` : ""}
+      <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+        <button class="small" onclick="useTemplate('${esc(t.slug)}')">New store</button>
+        <button class="small secondary" onclick="previewTemplate('${esc(t.slug)}')">Preview</button>
+        <button class="small secondary" onclick="exportTemplate('${esc(t.slug)}')">Export</button>
+        <button class="small secondary" style="color:var(--danger)" onclick="deleteTemplate('${esc(t.slug)}','${esc(t.name)}')">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function useTemplate(slug) { showCreate(slug); }
+
+async function previewTemplate(slug) {
+  try {
+    const { preview: pv } = await api(`/templates/${slug}/preview`);
+    const colors = pv.theme.colors || {};
+    $("tplPreview").innerHTML = `<div class="card" id="pvCard">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Preview — ${esc(pv.name)}</h2>
+        <button class="small secondary" onclick="$('tplPreview').innerHTML=''">Close</button></div>
+      <div class="grid2" style="margin-top:10px">
+        <div><label>Theme colors</label><div class="row" style="flex-wrap:wrap;gap:6px">
+          ${Object.entries(colors).map(([k, v]) => `<span title="${esc(k)}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px"><span style="width:16px;height:16px;border-radius:4px;border:1px solid var(--line);background:${esc(v)}"></span>${esc(k)}</span>`).join("") || '<span class="muted">defaults</span>'}
+        </div></div>
+        <div><label>Layout / motion</label><div>${esc(pv.layout)} · motion ${esc(pv.theme.motion)}</div>
+          <label>Feature flags</label><div>${Object.entries(pv.features).filter(([, v]) => v).map(([k]) => `<span class="pill">${esc(k)}</span>`).join("") || '<span class="muted">none on</span>'}</div></div>
+      </div>
+      <label style="margin-top:10px">Navigation</label><div>${(pv.navigation || []).map((n) => `<span class="pill">${esc(n)}</span>`).join("") || '<span class="muted">none</span>'}</div>
+      ${pv.hero.heading ? `<label style="margin-top:10px">Hero</label><div><b>${esc(pv.hero.heading)}</b> <span class="muted">${esc(pv.hero.subheading || "")}</span></div>` : ""}
+    </div>`;
+    $("pvCard").scrollIntoView({ behavior: "smooth" });
+  } catch (e) { toast("❌ " + e.message); }
+}
+
+async function exportTemplate(slug) {
+  try {
+    const r = await fetch(`/api/templates/${slug}/export`, { headers: { "x-panel-key": KEY, "x-panel-operator": OPERATOR || "panel" } });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || r.statusText); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${slug}-template.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast("✅ Exported");
+  } catch (e) { toast("❌ " + e.message); }
+}
+
+async function deleteTemplate(slug, name) {
+  if (!confirm(`Delete template "${name}"? Provisioned stores are unaffected.`)) return;
+  try { await api(`/templates/${slug}`, { method: "DELETE" }); toast("✅ Deleted"); showTemplates(); }
+  catch (e) { toast("❌ " + e.message); }
+}
+
+function importTemplate() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "application/json,.json";
+  input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    try {
+      const obj = JSON.parse(await file.text());
+      const d = await api("/templates/import", { method: "POST", body: JSON.stringify({ template: obj }) });
+      toast("✅ " + d.success); showTemplates();
+    } catch (e) {
+      toast("❌ " + (e.message || "invalid JSON"));
+    }
+  };
+  input.click();
+}
+
 /* ---------- store editor ---------- */
 const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsappCheckout"];
 const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
@@ -333,7 +456,7 @@ let deployValidation = null;
 let storeMigrations = [], updateCheck = null, wizardStep = 0, wizardBackup = false, wizardResult = null;
 
 async function openStore(id) {
-  current = id; renderList(); $("navDash").classList.remove("active");
+  current = id; renderList(); setNav("");
   $("main").innerHTML = '<p class="muted">Loading store…</p>';
   try {
     const [s, dep, act, mig] = await Promise.all([
@@ -389,6 +512,34 @@ function renderEditor(id) {
         <span class="k">Source</span><span>${esc(meta.source || "")}</span>
       </div>
       ${meta.source === "fleet" ? '<p class="muted" style="margin-top:10px">This store is resolved from the fleet registry — it is not yet in the platform database.</p>' : ""}
+    </div>
+    <div class="card"><h2>Actions</h2>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button class="secondary" onclick="toggleAction('actTemplate')">Create template</button>
+        <button class="secondary" onclick="toggleAction('actClone')">Clone store</button>
+      </div>
+      <div id="actTemplate" style="display:none;margin-top:14px">
+        <hr/><label>Template name</label><input type="text" id="t_name" placeholder="${esc(S.storeName || id)} blueprint"/>
+        <label>Description</label><input type="text" id="t_desc" placeholder="optional"/>
+        <label>Include</label>
+        <div class="checks">${["theme", "layout", "content", "stats", "features", "payment", "seo", "categories"].map((k) =>
+          `<label><input type="checkbox" data-tinc="${k}" checked/> ${k}</label>`).join("")}</div>
+        <div style="margin-top:10px"><button onclick="createTemplateFromStore('${id}')">Save template</button>
+          <span class="muted">Config only — never orders/customers/reviews.</span></div>
+      </div>
+      <div id="actClone" style="display:none;margin-top:14px">
+        <hr/><div class="grid2">
+          <div><label>New store name</label><input type="text" id="cl_name" placeholder="KickCo Copy"/></div>
+          <div><label>New store id</label><input type="text" id="cl_id" placeholder="kickco-copy"/></div>
+          <div><label>Admin email</label><input type="email" id="cl_email" placeholder="owner@new.com"/></div>
+          <div><label>Database name (optional)</label><input type="text" id="cl_db" placeholder="auto"/></div>
+        </div>
+        <label>Clone</label>
+        <div class="checks">${["appearance", "settings", "content", "categories", "products", "pages", "navigation"].map((k) =>
+          `<label><input type="checkbox" data-clopt="${k}" checked/> ${k}</label>`).join("")}</div>
+        <div style="margin-top:10px"><button onclick="cloneStore('${id}')">Clone into a fresh database</button>
+          <span class="muted">Merchant data (orders/customers/reviews) is never cloned.</span></div>
+      </div>
     </div>
     <div class="card"><h2>Recent activity</h2>${renderActivityList(storeActivity)}</div>
   </div>
@@ -543,6 +694,43 @@ const statRow = (st, i) => `
 
 function addStatRow() {
   $("statRows").insertAdjacentHTML("beforeend", statRow({ value: 0, suffix: "+", label: "" }));
+}
+
+/* ---------- store actions: template + clone (Phase Μ) ---------- */
+function toggleAction(id) {
+  const el = $(id); if (!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+async function createTemplateFromStore(id) {
+  const name = $("t_name").value.trim();
+  if (!name) return toast("Template name is required");
+  const include = {};
+  document.querySelectorAll("[data-tinc]").forEach((i) => (include[i.dataset.tinc] = i.checked));
+  try {
+    const d = await api(`/stores/${id}/template`, { method: "POST", body: JSON.stringify({ name, description: $("t_desc").value.trim(), include }) });
+    toast(`✅ ${d.success}`);
+    toggleAction("actTemplate");
+  } catch (e) { toast("❌ " + e.message); }
+}
+
+async function cloneStore(id, retry = false) {
+  const newId = $("cl_id").value.trim(), name = $("cl_name").value.trim(), email = $("cl_email").value.trim();
+  if (!newId || !name || !email) return toast("New name, id and admin email are required");
+  const options = {};
+  document.querySelectorAll("[data-clopt]").forEach((i) => (options[i.dataset.clopt] = i.checked));
+  try {
+    const d = await api(`/stores/${id}/clone`, {
+      method: "POST",
+      body: JSON.stringify({ id: newId, storeName: name, adminEmail: email, dbName: $("cl_db").value.trim() || undefined, options, retry }),
+    });
+    stores = (await api("/stores")).stores; renderList();
+    toast(`✅ ${d.success}\nAdmin: ${d.admin.email}\nPassword (save it now!): ${d.admin.password}`, 20000);
+    openStore(d.id);
+  } catch (e) {
+    if (!retry && /already exists/.test(e.message) && confirm("That store id already exists. Re-run the clone for it?")) return cloneStore(id, true);
+    toast("❌ " + e.message);
+  }
 }
 
 /* ---------- deployment engine ---------- */

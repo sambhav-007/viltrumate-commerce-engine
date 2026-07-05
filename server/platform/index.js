@@ -44,6 +44,7 @@ function platform() {
     ActivityLog: conn.model("ActivityLog", schemas.activityLogSchema),
     Deployment: conn.model("Deployment", schemas.deploymentSchema),
     MigrationLog: conn.model("MigrationLog", schemas.migrationLogSchema),
+    Template: conn.model("Template", schemas.templateSchema),
   };
   return models;
 }

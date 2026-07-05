@@ -123,10 +123,38 @@ const migrationLogSchema = new mongoose.Schema({
   error: { type: String, default: "" },
 });
 
+// Store Template (Phase Μ) — a reusable blueprint of a store's REUSABLE
+// CONFIGURATION only (theme/layout/content/stats/features/payment-without-secrets
+// /seo/categories/navigation). Never merchant data (orders, customers, reviews,
+// coupons, analytics, admin passwords, activity). `config` holds the snapshot;
+// `sourceStoreId` records the store it was captured from (if any).
+const templateSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    slug: { type: String, required: true, unique: true, index: true },
+    description: { type: String, default: "" },
+    industry: { type: String, default: "" },
+    thumbnail: { type: String, default: "" },
+    tags: { type: [String], default: [] },
+    createdBy: { type: String, default: "panel" },
+    version: { type: String, default: "1.0.0" },
+    visibility: { type: String, enum: ["private", "shared", "public"], default: "private" },
+    sourceStoreId: { type: String, default: "" },
+    usageCount: { type: Number, default: 0 },
+    config: { type: mongoose.Schema.Types.Mixed, default: {} },
+    versionHistory: {
+      type: [new mongoose.Schema({ version: String, at: Date, by: String, note: String }, { _id: false })],
+      default: [],
+    },
+  },
+  { timestamps: true }
+);
+
 module.exports = {
   storeSchema,
   operatorSchema,
   activityLogSchema,
   deploymentSchema,
   migrationLogSchema,
+  templateSchema,
 };

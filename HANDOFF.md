@@ -79,6 +79,18 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 - **Endpoints:** `GET /api/platform`, `GET …/update/check`, `POST …/update`, `GET …/migrations`; dashboard extended.
 - **Verified:** 30/30 end-to-end on an isolated platform + throwaway store DB (platform version + 3-migration catalog, fresh store starts at 1.2.0 up-to-date, deployment stamps vceVersion, simulated old store → update detection + dashboard/list state, **confirm required (400)**, migration run 1.0.0→1.2.0 with 3 successes + durations, post-update up-to-date, previousVersion/versionHistory/lastUpdated, 3 migration-log entries w/ operator+from/to, dashboard migration history, **compatibility abort 422 with no migrations run and version unchanged**). Migration-loader unit tests passed. Test DBs dropped, package dir + manifest removed, fleet.json restored. Browser DOM pass still recommended.
 
+**This session (Phase Μ — Store Templates & Cloning):**
+- **Template model** (platform `templates` collection) — reusable blueprint: `name/slug/description/industry/thumbnail/tags/createdBy/version/visibility/sourceStoreId/usageCount/config/versionHistory[]`. **Config only — never merchant data.**
+- **Extract/apply/validate/preview** (`server/platform/templates.js`) — `buildTemplateConfig(include)` snapshots a store's reusable config (theme/layout/content/stats/features/payment-without-secrets/seo/categories/navigation/productAttributes); `applyTemplateConfig` imports it into a fresh store; `validateImport` rejects structural problems **and merchant-data leakage** (orders/customers/users/reviews/analytics/activity/passwords/products); `previewOf` returns a renderable, secret-free preview.
+- **Cloning** (`server/platform/clone.js`) — `snapshotStore(options)` reads selected parts of a source store (appearance/settings/content/categories/products/pages/navigation); `writeClone` writes them into a **fresh database** (variant `stock` reset to untracked). **Never clones** orders/customers(users)/reviews/coupons/analytics/activity/admin passwords; every clone gets its own DB + fresh admin.
+- **Create Template from store** — `POST /api/stores/:id/template` (choose what to include).
+- **Provision from template** — `POST /api/stores` now supports **Blank / Industry preset / Template** (`body.template`); template mode imports the blueprint config + categories, bumps template `usageCount`, logs "Template used".
+- **Clone store** — `POST /api/stores/:id/clone` (options per part).
+- **Template gallery + versioning + import/export + preview** — `GET /api/templates` (gallery: thumbnail/industry/version/last-updated/usage), `GET/PUT/DELETE /api/templates/:tid` (edit **bumps version + appends versionHistory**; stores are NOT auto-updated), `GET …/export` (JSON download), `POST /api/templates/import` (**validated**), `GET …/preview`.
+- **Activity logging** — Template created/edited/deleted/used/exported/imported + Store cloned all audited.
+- **Panel UI** — Templates gallery (sidebar), per-template preview/export/delete/"new store", Import JSON; store Overview **Actions** (Create template / Clone store); create-store **Start from** selector (Blank / Industry / Template).
+- **Verified:** 39/39 end-to-end on an isolated platform + throwaway store DBs (template saved + v1.0.0 + sourceStoreId, config has categories/theme and **no merchant data**, provision-from-template imports categories/settings + fresh admin + no products/orders + usageCount++, **clone copies products/variants/categories with stock reset but excludes orders/reviews and the customer user**, versioning 1.0.0→1.0.1 + history, export JSON has no secrets, import creates a unique slug, **import with merchant data rejected 422**, preview returns theme/nav/features, all six template activity actions logged). Module unit tests (validate/preview) passed. All test DBs dropped, manifests removed, fleet.json restored. Browser DOM pass still recommended.
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -116,6 +128,8 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Store versioning + Update Manager (migrations, wizard, compat checks, migration log) | ✅ 30/30 e2e-verified on isolated DB; browser DOM pass pending |
 | VCE platform version (`CURRENT_VCE_VERSION` = latest migration, currently 1.2.0) | ✅ verified |
 | Migration/update rollback | 🔲 not implemented by design — Store + MigrationLog carry metadata for later |
+| Store Templates (create from store, gallery, versioning, import/export, preview) | ✅ 39/39 e2e-verified on isolated DB; browser DOM pass pending |
+| Provision from template (Blank / Industry / Template) + clone store (fresh DB) | ✅ verified (merchant data excluded) |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -167,4 +181,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Phase Λ — Store Versioning & Update Manager (VCE platform version driven by a migration framework; per-store version tracking; Update Wizard with compatibility checks + migration audit log; dashboard update widgets; rollback metadata only). Follows Phase Κ — Deployment Engine and Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._
+_Last updated: end of Phase Μ — Store Templates & Cloning (reusable Template blueprints captured from stores; provision from Blank / Industry / Template; store cloning into a fresh DB; gallery, versioning, import/export with validation, preview; merchant data always excluded). Follows Phase Λ — Store Versioning & Update Manager, Phase Κ — Deployment Engine, Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL._

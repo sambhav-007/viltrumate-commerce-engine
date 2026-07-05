@@ -51,7 +51,7 @@ as the actor on every audit event; it defaults to `panel`.
 
 | Area | Details |
 | --- | --- |
-| **Create store** | Name, id, industry preset, admin email → provisions the store's own database: StoreSettings (with the industry's theme/label/layout/flags), admin user (password shown once), starter categories. Manifest saved to `provisioning/stores/<id>.json`, registered in `fleet.json`. Env files + deployment stay a CLI step (docs/DEPLOYMENT.md). |
+| **Create store** | Name, id, admin email + **Start from** (Blank / Industry preset / Template) → provisions the store's own database: StoreSettings (theme/label/layout/flags from the industry or template), admin user (password shown once), starter categories. Manifest saved to `provisioning/stores/<id>.json`, registered in `fleet.json`. Env files + deployment stay a CLI step (docs/DEPLOYMENT.md). |
 | **Identity** | Store name, variant label, WhatsApp, contact, hero copy |
 | **Theme** | All 8 brand colors, design tokens (JSON), body/display fonts + Google families, motion |
 | **Layout** | Homepage variant (editorial / catalog / minimal) |
@@ -153,6 +153,40 @@ VCE version (`CURRENT_VCE_VERSION`). Each store records which VCE version it run
 
 Endpoints: `GET /api/platform` (version + migration catalog), `GET …/update/check`,
 `POST …/update`, `GET …/migrations`.
+
+## Store Templates & Cloning (Phase Μ)
+
+Cut onboarding time by reusing existing stores as blueprints. **Templates and clones carry
+reusable configuration only — never merchant data** (orders, customers, reviews, coupons,
+analytics, admin passwords, activity). Every cloned/templated store still gets **its own
+MongoDB database** (this is not multi-tenancy).
+
+- **Template model** (platform `templates` collection): `name/slug/description/industry/
+  thumbnail/tags/createdBy/version/visibility/sourceStoreId/usageCount/config/versionHistory`.
+  `config` captures theme, typography, motion, layout, content slots, trust stats, categories,
+  navigation, product attributes, feature flags, payment (no secrets) and SEO.
+- **Create template from a store:** store → **Overview → Actions → Create template** (choose what
+  to include) → `POST /api/stores/:id/template`.
+- **Templates gallery** (sidebar → **Templates**): preview image, industry, version, last updated,
+  usage count; per-card **Preview / Export / Delete / New store**, plus **Import JSON**.
+- **Provision from template:** create-store **Start from** selector — **Blank / Industry preset /
+  Template**. Template mode provisions the DB, imports the blueprint config + categories, creates
+  the admin, registers the store, and increments the template's `usageCount`.
+- **Clone a store:** store → **Overview → Actions → Clone store**. Options: appearance, settings,
+  content, categories, products, pages, navigation. Provisions a fresh DB + fresh admin; variant
+  stock is reset (live inventory is not carried over); merchant data is never copied.
+- **Versioning:** editing a template bumps its version and appends a `versionHistory` entry.
+  **Provisioned stores are never auto-updated** by a template edit.
+- **Import / Export:** export a template as JSON (`GET …/export`); import with validation
+  (`POST /api/templates/import`) — structural checks plus rejection of any merchant-data leakage.
+- **Preview** (`GET …/preview`): theme colors, layout/motion, navigation, feature flags and hero
+  — no provisioning required.
+- **Activity:** creating / editing / deleting / using / exporting / importing a template and
+  cloning a store are all audited.
+
+Endpoints: `GET /api/templates`, `POST /api/templates/import`, `GET/PUT/DELETE /api/templates/:tid`,
+`GET …/:tid/export`, `GET …/:tid/preview`, `POST /api/stores/:id/template`,
+`POST /api/stores/:id/clone`, and `POST /api/stores` with `template`.
 
 ## How it works
 
