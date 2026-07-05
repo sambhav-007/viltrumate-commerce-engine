@@ -50,8 +50,32 @@ connectDb()
     } catch (e) {
       console.log("Feature flag preload skipped:", e.message);
     }
+    // Load this store's ENABLED plugins into the app (Phase Ξ). Non-fatal: a bad
+    // plugin is reported and skipped without affecting the commerce engine.
+    await loadStorePlugins();
   })
   .catch((err) => console.log("Database Not Connected !!!", err.message));
+
+// Discover + mount the plugins enabled for THIS store (read from the store db's
+// pluginruntimes mirror the panel maintains). Runs inside the existing app.
+async function loadStorePlugins() {
+  try {
+    const { load } = require("./pluginHost/loader");
+    const { runtimeModel } = require("./pluginHost/runtime");
+    const states = await runtimeModel().find({ enabled: true });
+    const map = {};
+    states.forEach((s) => (map[s.pluginId] = { enabled: true, settings: s.settings || {} }));
+    const { report } = load({
+      app,
+      isEnabled: (id) => !!map[id],
+      getSettings: (id) => (map[id] || {}).settings || {},
+    });
+    if (report.loaded.length) console.log("Plugins loaded:", report.loaded.join(", "));
+    if (report.failed.length) console.log("Plugins failed:", report.failed.map((f) => f.id).join(", "));
+  } catch (e) {
+    console.log("Plugin load skipped:", e.message);
+  }
+}
 
 // Middleware
 // CSP is a browser-HTML protection; this server returns only JSON, so we

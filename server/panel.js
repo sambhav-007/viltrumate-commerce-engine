@@ -52,6 +52,9 @@ const templates = require("./platform/templates");
 const { snapshotStore, writeClone } = require("./platform/clone");
 const { baseSlug } = require("./config/slug");
 const { logInfo, logError } = require("./config/logger");
+const pluginLoader = require("./pluginHost/loader");
+const { createSdk } = require("./pluginHost/sdk");
+const { runtimeModel } = require("./pluginHost/runtime");
 
 const APP_VERSION = require("./package.json").version;
 
@@ -259,7 +262,13 @@ app.get("/api/diagnostics", async (req, res) => {
     },
     deployment: { providers: listProviders() },
     migrations: { current: CURRENT_VCE_VERSION, count: listMigrations().length, storesNeedingUpdate: 0 },
+    plugins: { discovered: 0, valid: 0, invalid: [], installed: 0, enabled: 0, items: [] },
   };
+  const cat = pluginCatalog();
+  diag.plugins.discovered = cat.length;
+  diag.plugins.valid = cat.filter((c) => c.valid).length;
+  diag.plugins.invalid = cat.filter((c) => !c.valid).map((c) => ({ id: c.id, errors: c.errors }));
+  diag.plugins.items = cat.map((c) => ({ id: c.id, name: c.name, version: c.version, valid: c.valid, health: c.valid ? "ok" : "invalid" }));
   try {
     if (platformConfigured()) {
       const p = platform();
@@ -272,6 +281,9 @@ app.get("/api/diagnostics", async (req, res) => {
         const stores = await p.Store.find({}, { currentVersion: 1 });
         diag.storeDatabase.stores = stores.length;
         diag.migrations.storesNeedingUpdate = stores.filter((s) => pendingFor(s.currentVersion).length).length;
+        const ps = await p.PluginState.find({});
+        diag.plugins.installed = ps.filter((s) => s.installed).length;
+        diag.plugins.enabled = ps.filter((s) => s.enabled).length;
       }
     }
   } catch (err) {
@@ -1155,6 +1167,187 @@ app.post("/api/stores/:id/clone", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: `Clone failed: ${err.message}` });
+  }
+});
+
+/* ==================== Plugins & Extensions (Phase Ξ) ==================== */
+
+const pluginCatalog = () =>
+  pluginLoader.discover().map((d) => ({
+    id: d.id,
+    valid: d.valid,
+    errors: d.errors || [],
+    name: (d.manifest && d.manifest.name) || d.id,
+    version: (d.manifest && d.manifest.version) || "",
+    description: (d.manifest && d.manifest.description) || "",
+    author: (d.manifest && d.manifest.author) || "",
+    permissions: (d.manifest && d.manifest.permissions) || [],
+    settingsSchema: (d.manifest && d.manifest.settings && d.manifest.settings.schema) || [],
+    featureFlags: (d.manifest && d.manifest.featureFlags) || [],
+    hasMigrations: !!(d.manifest && d.manifest.migrations),
+  }));
+
+const findPlugin = (pid) => pluginLoader.discover().find((d) => d.id === pid);
+
+const defaultSettings = (d) => {
+  const out = {};
+  ((d.manifest && d.manifest.settings && d.manifest.settings.schema) || []).forEach((f) => {
+    if (f && f.key !== undefined) out[f.key] = f.default;
+  });
+  return out;
+};
+
+// Mirror per-store plugin state into the store's own db (the commerce server
+// reads this at boot). Runs on the serialized store-db queue.
+const mirrorRuntime = (dbName, pluginId, patch) =>
+  withStoreDb(dbName, () => runtimeModel().updateOne({ pluginId }, { $set: patch }, { upsert: true }));
+
+// GET /api/plugins -> the plugin catalog on disk (with validity)
+app.get("/api/plugins", (req, res) => res.json({ plugins: pluginCatalog() }));
+
+// GET /api/stores/:id/plugins -> catalog merged with this store's plugin state
+app.get("/api/stores/:id/plugins", async (req, res) => {
+  try {
+    const p = platform();
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    const states = p ? await p.PluginState.find({ storeId: store.id }) : [];
+    const byId = {};
+    states.forEach((s) => (byId[s.pluginId] = s));
+    const plugins = pluginCatalog().map((c) => {
+      const st = byId[c.id];
+      return {
+        ...c,
+        state: st
+          ? { installed: st.installed, enabled: st.enabled, settings: st.settings || {}, version: st.version, installedAt: st.installedAt }
+          : { installed: false, enabled: false, settings: {} },
+      };
+    });
+    res.json({ store: store.id, plugins });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/stores/:id/plugins/:pid/install -> run migrations + register state
+app.post("/api/stores/:id/plugins/:pid/install", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Plugins require PLATFORM_DATABASE" });
+  try {
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    const d = findPlugin(req.params.pid);
+    if (!d) return res.status(404).json({ error: "Unknown plugin" });
+    if (!d.valid) return res.status(422).json({ error: "Invalid plugin manifest", errors: d.errors });
+    const operator = operatorOf(req);
+    const migs = pluginLoader.pluginMigrations(d);
+    const applied = [];
+
+    await withStoreDb(store.dbName, async () => {
+      const sdk = createSdk(d.manifest, { registry: pluginLoader.createRegistry(), mountRoutes: false });
+      const ctx = { sdk, storage: (n) => sdk.storage(n), mongoose, connection: mongoose.connection };
+      for (const m of migs) {
+        const start = Date.now();
+        let result = "success", error = "";
+        try {
+          await m.run(ctx);
+          if (typeof m.verification === "function" && !(await m.verification(ctx))) { result = "failed"; error = "verification returned false"; }
+        } catch (e) { result = "failed"; error = e.message; }
+        applied.push({ version: m.version, result, error, duration: Date.now() - start });
+      }
+      await runtimeModel().updateOne(
+        { pluginId: d.id },
+        { $set: { installed: true, version: d.manifest.version }, $setOnInsert: { enabled: false, settings: defaultSettings(d) } },
+        { upsert: true }
+      );
+    });
+
+    await p.PluginState.updateOne(
+      { storeId: store.id, pluginId: d.id },
+      { $set: { name: d.manifest.name, version: d.manifest.version, installed: true, installedAt: new Date() }, $setOnInsert: { enabled: false, settings: defaultSettings(d) } },
+      { upsert: true }
+    );
+    for (const a of applied) {
+      await p.MigrationLog.create({ operator, storeId: store.id, migration: `plugin:${d.id}:${a.version}`, description: `${d.manifest.name} migration`, toVersion: a.version, duration: a.duration, result: a.result, error: a.error });
+    }
+    await logActivity({ operator, storeId: store.id, action: "Plugin installed", metadata: { plugin: d.id, version: d.manifest.version } });
+    res.json({ success: `Plugin "${d.manifest.name}" installed`, migrations: applied });
+  } catch (err) {
+    res.status(500).json({ error: `Install failed: ${err.message}` });
+  }
+});
+
+// POST /api/stores/:id/plugins/:pid/enable | /disable
+async function setPluginEnabled(req, res, enabled) {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Plugins require PLATFORM_DATABASE" });
+  try {
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    const d = findPlugin(req.params.pid);
+    if (!d) return res.status(404).json({ error: "Unknown plugin" });
+    const st = await p.PluginState.findOne({ storeId: store.id, pluginId: d.id });
+    if (enabled && (!st || !st.installed)) return res.status(400).json({ error: "Plugin must be installed before it can be enabled" });
+    await p.PluginState.updateOne({ storeId: store.id, pluginId: d.id }, { $set: { enabled } }, { upsert: true });
+    await mirrorRuntime(store.dbName, d.id, { enabled });
+    await logActivity({ operator: operatorOf(req), storeId: store.id, action: enabled ? "Plugin enabled" : "Plugin disabled", metadata: { plugin: d.id } });
+    res.json({ success: `Plugin "${d.manifest.name}" ${enabled ? "enabled" : "disabled"}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+app.post("/api/stores/:id/plugins/:pid/enable", (req, res) => setPluginEnabled(req, res, true));
+app.post("/api/stores/:id/plugins/:pid/disable", (req, res) => setPluginEnabled(req, res, false));
+
+// PUT /api/stores/:id/plugins/:pid/settings -> update plugin settings
+app.put("/api/stores/:id/plugins/:pid/settings", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Plugins require PLATFORM_DATABASE" });
+  try {
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    const d = findPlugin(req.params.pid);
+    if (!d) return res.status(404).json({ error: "Unknown plugin" });
+    const settings = req.body && req.body.settings;
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) return res.status(400).json({ error: "settings object is required" });
+    await p.PluginState.updateOne({ storeId: store.id, pluginId: d.id }, { $set: { settings } }, { upsert: true });
+    await mirrorRuntime(store.dbName, d.id, { settings });
+    await logActivity({ operator: operatorOf(req), storeId: store.id, action: "Plugin settings updated", metadata: { plugin: d.id } });
+    res.json({ success: "Plugin settings updated", settings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/stores/:id/plugins/:pid/uninstall -> mark not-installed. Validates
+// whether data would be orphaned and NEVER deletes plugin data automatically.
+app.post("/api/stores/:id/plugins/:pid/uninstall", async (req, res) => {
+  const p = platform();
+  if (!p) return res.status(400).json({ error: "Plugins require PLATFORM_DATABASE" });
+  try {
+    const store = await resolveStore(req.params.id);
+    if (!store) return res.status(404).json({ error: "Unknown store" });
+    const d = findPlugin(req.params.pid);
+    if (!d) return res.status(404).json({ error: "Unknown plugin" });
+    const { orphaned, collections } = await withStoreDb(store.dbName, async () => {
+      const colls = await mongoose.connection.db.listCollections().toArray();
+      const mine = colls.map((c) => c.name).filter((n) => n.startsWith(`plugin_${d.id}_`));
+      let total = 0;
+      for (const n of mine) total += await mongoose.connection.db.collection(n).countDocuments();
+      return { orphaned: total, collections: mine };
+    });
+    if (orphaned > 0 && req.body.force !== true) {
+      return res.status(409).json({
+        error: `Uninstall would leave ${orphaned} record(s) in ${collections.length} collection(s). Data is retained, not deleted. Pass force:true to uninstall anyway.`,
+        orphaned, collections,
+      });
+    }
+    await p.PluginState.updateOne({ storeId: store.id, pluginId: d.id }, { $set: { installed: false, enabled: false } }, { upsert: true });
+    await mirrorRuntime(store.dbName, d.id, { installed: false, enabled: false });
+    await logActivity({ operator: operatorOf(req), storeId: store.id, action: "Plugin uninstalled", metadata: { plugin: d.id, retainedRecords: orphaned } });
+    res.json({ success: `Plugin "${d.manifest.name}" uninstalled (data retained)`, retainedRecords: orphaned });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

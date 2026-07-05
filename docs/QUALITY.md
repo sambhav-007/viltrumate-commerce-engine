@@ -43,15 +43,17 @@ npm run test:integration
 | Provisioning, fleet fallback, activity logging, auth/validation, health/ready, diagnostics | `integration/panel.test.js` |
 | Deployment package generation, update manager, migrations, templates (create/import/export/preview), cloning | `integration/panel.test.js` + `unit/*` |
 | Products, categories, variants, inventory movements, coupons, orders, StoreSettings | `integration/commerce.test.js` |
+| Plugin discovery, manifest validation, loader failure isolation, route/storage scoping | `unit/plugin-validate.test.js`, `unit/plugin-loader.test.js` |
+| Plugin lifecycle (install/enable/settings/disable/uninstall) + orphan guard + activity | `integration/plugins.test.js` |
 | Razorpay signature/webhook verification (mocked, no network) | `unit/razorpay.test.js` |
 
 ## Diagnostics
 
 The panel exposes read-only diagnostics (**Panel → Diagnostics**, or `GET /api/diagnostics`):
 application/VCE version, platform DB status, store-cluster reachability + store count,
-Cloudinary configuration, payment-provider configuration, deployment providers, and migration
-status (current version + stores needing update). Use it as the first stop when a store or the
-fleet misbehaves.
+Cloudinary configuration, payment-provider configuration, deployment providers, migration
+status (current version + stores needing update), and plugins (discovered/valid/installed/enabled
++ health). Use it as the first stop when a store or the fleet misbehaves.
 
 ## Health endpoints
 

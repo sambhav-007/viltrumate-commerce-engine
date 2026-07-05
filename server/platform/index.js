@@ -45,6 +45,7 @@ function platform() {
     Deployment: conn.model("Deployment", schemas.deploymentSchema),
     MigrationLog: conn.model("MigrationLog", schemas.migrationLogSchema),
     Template: conn.model("Template", schemas.templateSchema),
+    PluginState: conn.model("PluginState", schemas.pluginStateSchema),
   };
   return models;
 }

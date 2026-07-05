@@ -484,7 +484,18 @@ async function showDiagnostics() {
     ${row("Current migration", "v" + esc(d.migrations.current))}
     ${row("Registered migrations", d.migrations.count)}
     ${row("Stores needing update", dot(d.migrations.storesNeedingUpdate === 0, d.migrations.storesNeedingUpdate > 0) + " " + d.migrations.storesNeedingUpdate)}
-  </div></div>`;
+  </div></div>
+  <div class="card"><h2>Plugins</h2><div class="kv">
+    ${row("Discovered", d.plugins.discovered)}
+    ${row("Valid", dot(d.plugins.valid === d.plugins.discovered, d.plugins.valid < d.plugins.discovered) + " " + d.plugins.valid + "/" + d.plugins.discovered)}
+    ${row("Installed (fleet)", d.plugins.installed)}
+    ${row("Enabled (fleet)", d.plugins.enabled)}
+  </div>
+  ${(d.plugins.items || []).length ? `<table class="mini" style="margin-top:10px"><thead><tr><th>Plugin</th><th>Version</th><th>Health</th></tr></thead>
+    <tbody>${d.plugins.items.map((pl) => `<tr><td>${esc(pl.name || pl.id)}</td><td>v${esc(pl.version || "")}</td>
+      <td><span class="status ${pl.health === "ok" ? "active" : "error"}">${esc(pl.health)}</span></td></tr>`).join("")}</tbody></table>` : ""}
+  ${(d.plugins.invalid || []).length ? `<div class="locknote" style="margin-top:8px">Invalid: ${d.plugins.invalid.map((x) => esc(x.id) + " (" + (x.errors || []).map(esc).join("; ") + ")").join(", ")}</div>` : ""}
+  </div>`;
 }
 
 /* ---------- store editor ---------- */
@@ -492,24 +503,27 @@ const FEATURES = ["reviews", "wishlist", "coupons", "inventory", "cod", "whatsap
 const PROVIDERS = ["whatsapp", "cod", "razorpay", "stripe"];
 const LOCKS = ["identity", "theme", "layout", "payment", "features", "seo", "stats", "content"];
 const COLORS = ["cream", "sand", "card", "ink", "muted", "accent", "accent-hover", "hairline"];
-const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Deployment", "Updates", "Security"];
+const TABS = ["Overview", "Appearance", "Commerce", "Content", "Features", "Deployment", "Updates", "Plugins", "Security"];
 let deployValidation = null;
 let storeMigrations = [], updateCheck = null, wizardStep = 0, wizardBackup = false, wizardResult = null;
+let storePlugins = [];
 
 async function openStore(id) {
   current = id; renderList(); setNav("");
   $("main").innerHTML = '<p class="muted">Loading store…</p>';
   try {
-    const [s, dep, act, mig] = await Promise.all([
+    const [s, dep, act, mig, plg] = await Promise.all([
       api(`/stores/${id}/settings`),
       api(`/stores/${id}/deployments`).catch(() => ({ deployments: [] })),
       api(`/activity?storeId=${encodeURIComponent(id)}&limit=20`).catch(() => ({ activity: [] })),
       api(`/stores/${id}/migrations`).catch(() => ({ migrations: [] })),
+      api(`/stores/${id}/plugins`).catch(() => ({ plugins: [] })),
     ]);
     S = s.settings; storeMeta = s.store;
     storeDeployments = dep.deployments || [];
     storeActivity = act.activity || [];
     storeMigrations = mig.migrations || [];
+    storePlugins = plg.plugins || [];
     updateCheck = null; wizardStep = 0; wizardBackup = false; wizardResult = null;
     renderEditor(id);
   } catch (e) {
@@ -700,6 +714,15 @@ function renderEditor(id) {
     <div class="card"><h2>Migration history</h2><div id="migTable">${renderMigrations(storeMigrations)}</div></div>
   </div>
 
+  <!-- PLUGINS -->
+  <div class="tab-panel" data-tab="Plugins">
+    <div class="card"><h2>Plugins</h2>
+      <p class="muted">Extend this store without touching core code. Install runs the plugin's
+      migration; enabling mounts its routes on the running store. Uninstalling never deletes data.</p>
+      <div id="pluginList">${renderPlugins(id)}</div>
+    </div>
+  </div>
+
   <!-- SECURITY -->
   <div class="tab-panel" data-tab="Security">
     <div class="locknote">Locked sections are hidden from the client's admin and write-protected in the store API — only this panel changes them.</div>
@@ -772,6 +795,74 @@ async function cloneStore(id, retry = false) {
     if (!retry && /already exists/.test(e.message) && confirm("That store id already exists. Re-run the clone for it?")) return cloneStore(id, true);
     toast("❌ " + e.message);
   }
+}
+
+/* ---------- plugins (Phase Ξ) ---------- */
+function renderPlugins(id) {
+  if (!storePlugins.length) return '<p class="muted">No plugins discovered in /plugins.</p>';
+  return storePlugins.map((pl) => {
+    const st = pl.state || {};
+    const badge = !pl.valid ? '<span class="badge update-failed">invalid</span>'
+      : st.enabled ? '<span class="badge up-to-date">enabled</span>'
+      : st.installed ? '<span class="badge migration-required">installed</span>'
+      : '<span class="badge unknown">available</span>';
+    const btns = !pl.valid ? "" : `
+      ${!st.installed ? `<button class="small" onclick="pluginAction('${id}','${pl.id}','install')">Install</button>` : ""}
+      ${st.installed && !st.enabled ? `<button class="small" onclick="pluginAction('${id}','${pl.id}','enable')">Enable</button>` : ""}
+      ${st.enabled ? `<button class="small secondary" onclick="pluginAction('${id}','${pl.id}','disable')">Disable</button>` : ""}
+      ${st.installed ? `<button class="small secondary" style="color:var(--danger)" onclick="pluginUninstall('${id}','${pl.id}')">Uninstall</button>` : ""}`;
+    const settingsForm = st.installed && (pl.settingsSchema || []).length ? renderPluginSettings(id, pl) : "";
+    return `<div class="card" style="border-style:${pl.valid ? "solid" : "dashed"}">
+      <div class="row" style="justify-content:space-between">
+        <div><b>${esc(pl.name)}</b> <span class="pill">v${esc(pl.version)}</span> ${badge}
+          <div class="muted">${esc(pl.description || "")}${pl.author ? " · " + esc(pl.author) : ""}</div>
+          ${!pl.valid ? `<div style="color:var(--danger);font-size:12px">${(pl.errors || []).map(esc).join("; ")}</div>` : ""}</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">${btns}</div>
+      </div>
+      ${settingsForm}
+    </div>`;
+  }).join("");
+}
+
+function renderPluginSettings(id, pl) {
+  const s = (pl.state && pl.state.settings) || {};
+  const field = (f) => {
+    const v = s[f.key] !== undefined ? s[f.key] : f.default;
+    if (f.type === "boolean") return `<label style="display:flex;gap:7px;align-items:center;margin-top:12px"><input type="checkbox" data-pset="${esc(f.key)}" ${v ? "checked" : ""}/> ${esc(f.label || f.key)}</label>`;
+    if (f.type === "color") return `<div><label>${esc(f.label || f.key)}</label><input type="color" data-pset="${esc(f.key)}" value="${esc(v || "#000000")}"/></div>`;
+    return `<div><label>${esc(f.label || f.key)}</label><input type="text" data-pset="${esc(f.key)}" value="${esc(v == null ? "" : v)}"/></div>`;
+  };
+  return `<hr/><div data-psettings="${esc(pl.id)}"><b style="font-size:12px">Settings</b>
+    <div class="grid3">${(pl.settingsSchema || []).map(field).join("")}</div>
+    <div style="margin-top:8px"><button class="small" onclick="pluginSaveSettings('${id}','${pl.id}')">Save settings</button></div></div>`;
+}
+
+async function reloadPlugins(id) {
+  try { storePlugins = (await api(`/stores/${id}/plugins`)).plugins || []; } catch (e) {}
+  const el = $("pluginList"); if (el) el.innerHTML = renderPlugins(id);
+  api(`/activity?storeId=${encodeURIComponent(id)}&limit=20`).then((a) => { storeActivity = a.activity || []; }).catch(() => {});
+}
+
+async function pluginAction(id, pid, action) {
+  try { const d = await api(`/stores/${id}/plugins/${pid}/${action}`, { method: "POST" }); toast("✅ " + d.success); await reloadPlugins(id); }
+  catch (e) { toast("❌ " + e.message); }
+}
+
+async function pluginUninstall(id, pid, force) {
+  try { const d = await api(`/stores/${id}/plugins/${pid}/uninstall`, { method: "POST", body: JSON.stringify({ force: !!force }) }); toast("✅ " + d.success); await reloadPlugins(id); }
+  catch (e) {
+    if (!force && /retained|force|orphan/i.test(e.message) && confirm(e.message + "\n\nUninstall anyway? (data is kept, not deleted)")) return pluginUninstall(id, pid, true);
+    toast("❌ " + e.message);
+  }
+}
+
+async function pluginSaveSettings(id, pid) {
+  const settings = {};
+  document.querySelectorAll(`[data-psettings="${pid}"] [data-pset]`).forEach((i) => {
+    settings[i.dataset.pset] = i.type === "checkbox" ? i.checked : i.value;
+  });
+  try { await api(`/stores/${id}/plugins/${pid}/settings`, { method: "PUT", body: JSON.stringify({ settings }) }); toast("✅ Settings saved"); await reloadPlugins(id); }
+  catch (e) { toast("❌ " + e.message); }
 }
 
 /* ---------- deployment engine ---------- */

@@ -100,6 +100,18 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 - **Docs** — new `docs/QUALITY.md` (testing strategy / diagnostics / release workflow) + `docs/RELEASE_CHECKLIST.md`; PANEL/DEPLOYMENT updated.
 - **Verified:** full suite green against an isolated cluster (57/57); integration files skip cleanly with no cluster (2 skipped, 0 fail); all throwaway DBs dropped, `fleet.json` + manifests + deployment packages restored/removed (working tree clean). No new features or architecture changes.
 
+**This session (Phase Ξ — Plugin & Extension SDK):**
+- **Plugin host** (`server/pluginHost/`) — `validate.js` (manifest validation), `sdk.js` (the restricted SDK), `registry.js`, `loader.js` (discover/load with per-plugin failure isolation), `runtime.js` (store-db enablement mirror). Plugins run **inside the existing app** (not microservices).
+- **Plugin packages** at repo root `/plugins/<id>/` = `manifest.json` + `server/index.js` (`register(sdk)`) + `migrations/` + `client/` + `README.md`.
+- **SDK surface** — `registerRoute` (mounts **only** under `/api/plugins/<id>/…`; duplicates + path escapes rejected — no core/cross-plugin override), `storage(name)` (mongoose model on a plugin-namespaced `plugin_<id>_<name>` collection — the only data interface; no core mutation), `registerMigration/FeatureFlag/SettingsSchema/AdminPage/SidebarItem/DashboardWidget/NavigationItem`, `getSettings`, `log` (secret-redacting). No raw mongoose / core models / core app exposed.
+- **Loader** — discover + validate manifests; load only enabled+valid plugins; a throwing/invalid plugin is reported and skipped (never crashes). `app.js` loads this store's enabled plugins at boot from the store-db `pluginruntimes` mirror.
+- **Store-level enablement** — platform `PluginState` collection (`{ storeId, pluginId, installed, enabled, settings, version }`) is authoritative; panel mirrors runtime into each store db. Lifecycle: **install** (runs plugin migrations against the store db + MigrationLog), **enable/disable**, **settings**, **uninstall** (validates orphaned data → 409 unless `force`; **never auto-deletes plugin data**). All lifecycle actions audited (`Plugin installed/enabled/disabled/uninstalled`, `Plugin settings updated`).
+- **Reference plugin** `plugins/announcements` — dismissible storefront bar + admin CRUD + migration + settings + example `client/AnnouncementBar.jsx`; exercises every SDK surface.
+- **Panel** — per-store **Plugins** tab (install/enable/disable/uninstall + settings form); **Diagnostics** now shows installed/enabled plugins, versions, validity/health.
+- **Endpoints** — `GET /api/plugins`, `GET/…/stores/:id/plugins`, `POST …/plugins/:pid/{install,enable,disable,uninstall}`, `PUT …/plugins/:pid/settings`; diagnostics extended.
+- **Tests** — `unit/plugin-validate` + `unit/plugin-loader` (discovery, validation, failure isolation, route namespacing, storage scoping, disabled-ignored) + `integration/plugins` (full lifecycle via panel, DB-gated). Suite now **77/77** with a cluster; **48 pass / 3 skipped** without one.
+- **Verified:** 77/77 against an isolated cluster (catalog, install+migration, enable + store-db runtime mirror, settings, diagnostics counts, disable, **uninstall orphan-guard 409 + force retains data**, full activity trail); throwaway plugin package discovered→loaded→removed cleanly; all test DBs dropped, repo files restored (tree clean). `docs/PLUGINS.md` added.
+
 ## 4. Capability matrix (current)
 
 | Area | Status |
@@ -142,6 +154,8 @@ A reusable, vertical-agnostic **MERN commerce engine** extracted from a single-b
 | Automated test suite (node:test; 57 tests, DB-gated integration) | ✅ 57/57 pass; skips w/o cluster |
 | Health endpoints (/health, /ready) + Diagnostics page + standardized logging | ✅ verified |
 | Release checklist + QUALITY.md | ✅ documented |
+| Plugin & Extension SDK (host, loader, restricted SDK, per-store lifecycle) | ✅ 77/77 e2e-verified; browser DOM pass pending |
+| Reference plugin (announcements) + PLUGINS.md | ✅ verified |
 | Tenant routing / Stripe / email-SMTP notifications | 🔲 not started (out of scope) |
 
 ## 5. How to run / provision
@@ -193,4 +207,4 @@ Provision a new client store: fill `server/provisioning/client-manifest.example.
 
 ---
 
-_Last updated: end of Phase Ν — Quality Assurance, Testing & Release Candidate (node:test suite — 57 tests, DB-gated integration; /health + /ready; Diagnostics page + endpoint; standardized secret-redacting logger + request IDs + error middleware; QUALITY.md + RELEASE_CHECKLIST.md). Follows Phase Μ — Store Templates & Cloning, Phase Λ — Update Manager, Phase Κ — Deployment Engine, Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL / QUALITY / RELEASE_CHECKLIST._
+_Last updated: end of Phase Ξ — Plugin & Extension SDK (plugin host + restricted SDK + loader with failure isolation; /plugins packages incl. reference `announcements`; per-store install/enable/disable/settings/uninstall with orphan-guard; plugins in Diagnostics; 77-test suite; PLUGINS.md). Follows Phase Ν — QA/Testing, Phase Μ — Templates & Cloning, Phase Λ — Update Manager, Phase Κ — Deployment Engine, Phase Ι — Platform Database Migration. Branch `vce-alpha`, local — push pending user go-ahead. Docs: PROVISIONING / THEMING / DEPLOYMENT / PANEL / QUALITY / RELEASE_CHECKLIST / PLUGINS._

@@ -150,6 +150,24 @@ const templateSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Per-store plugin state (Phase Ξ) — the authoritative record of which plugins
+// are installed/enabled for each store and their settings. The panel manages it;
+// the store-side `pluginruntimes` mirror lets the commerce server load at boot.
+const pluginStateSchema = new mongoose.Schema(
+  {
+    storeId: { type: String, required: true, index: true },
+    pluginId: { type: String, required: true, index: true },
+    name: { type: String, default: "" },
+    version: { type: String, default: "" },
+    installed: { type: Boolean, default: false },
+    enabled: { type: Boolean, default: false },
+    settings: { type: mongoose.Schema.Types.Mixed, default: {} },
+    installedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+pluginStateSchema.index({ storeId: 1, pluginId: 1 }, { unique: true });
+
 module.exports = {
   storeSchema,
   operatorSchema,
@@ -157,4 +175,5 @@ module.exports = {
   deploymentSchema,
   migrationLogSchema,
   templateSchema,
+  pluginStateSchema,
 };

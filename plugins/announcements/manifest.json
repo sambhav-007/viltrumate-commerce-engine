@@ -1,0 +1,37 @@
+{
+  "id": "announcements",
+  "name": "Announcements",
+  "version": "1.0.0",
+  "description": "A dismissible storefront announcement bar with admin CRUD. The reference plugin demonstrating the VCE Plugin SDK.",
+  "author": "VCE",
+  "permissions": ["storefront", "admin"],
+  "dependencies": [],
+  "routes": [
+    { "method": "GET", "path": "active", "public": true, "description": "Active announcements for the storefront bar" },
+    { "method": "GET", "path": "items", "auth": "admin", "description": "List all announcements (admin)" },
+    { "method": "POST", "path": "items", "auth": "admin", "description": "Create an announcement (admin)" },
+    { "method": "PUT", "path": "items/:id", "auth": "admin", "description": "Update an announcement (admin)" },
+    { "method": "DELETE", "path": "items/:id", "auth": "admin", "description": "Delete an announcement (admin)" }
+  ],
+  "adminPages": [
+    { "id": "announcements", "title": "Announcements", "path": "/admin/plugins/announcements", "icon": "megaphone" }
+  ],
+  "sidebarItems": [
+    { "label": "Announcements", "target": "announcements" }
+  ],
+  "navigationItems": [],
+  "dashboardWidgets": [
+    { "id": "announcements-count", "title": "Active announcements" }
+  ],
+  "featureFlags": [
+    { "flag": "announcementBar", "default": true }
+  ],
+  "settings": {
+    "schema": [
+      { "key": "barColor", "type": "color", "default": "#111827", "label": "Bar background color" },
+      { "key": "textColor", "type": "color", "default": "#ffffff", "label": "Bar text color" },
+      { "key": "dismissible", "type": "boolean", "default": true, "label": "Allow visitors to dismiss" }
+    ]
+  },
+  "migrations": true
+}

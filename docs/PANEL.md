@@ -83,7 +83,8 @@ Lockable: `identity, theme, layout, payment, features, seo, stats, content`.
   activity), **Appearance** (theme/typography/tokens/motion/layout), **Commerce** (payment),
   **Content** (identity/hero), **Features** (flags + trust stats), **Deployment** (current
   version, generate/download package, deployment history — see below), **Updates** (VCE version,
-  Update Wizard, migration history — see below), **Security** (agency locks). One "Save all
+  Update Wizard, migration history — see below), **Plugins** (per-store install/enable/disable/
+  settings/uninstall — see [PLUGINS.md](PLUGINS.md)), **Security** (agency locks). One "Save all
   changes" persists the settings tabs.
 
 ## Deployment Engine (Phase Κ)
@@ -192,7 +193,8 @@ Endpoints: `GET /api/templates`, `POST /api/templates/import`, `GET/PUT/DELETE /
 
 - **Diagnostics** (sidebar → **Diagnostics**, or `GET /api/diagnostics`): read-only status of the
   platform DB, store-cluster reachability + store count, Cloudinary config, payment-provider
-  config, deployment providers, migration status, and app/VCE version.
+  config, deployment providers, migration status, **installed/enabled plugins + versions + health**,
+  and app/VCE version.
 - **Health endpoints** (unauthenticated, structured JSON): `GET /health` (liveness) and
   `GET /ready` (readiness — 200 when the platform DB is reachable, else 503).
 - **Logging**: JSON lines with secret redaction and dev-only stack traces; every request carries
